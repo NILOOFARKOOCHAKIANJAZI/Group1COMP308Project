@@ -134,7 +134,7 @@ CLIENT_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002
 ## Step 1 — Clone the Repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/NILOOFARKOOCHAKIANJAZI/Group1COMP308Project.git
 cd Group1COMP308Project
 ```
 
@@ -322,4 +322,285 @@ http://localhost:4000/graphql
 
 ```
 
+# Backend Features by Microservice
+
+This section lists the current backend capabilities implemented in each microservice.
+
+---
+
+## 1) auth-service
+
+The `auth-service` is responsible for authentication and user identity management.
+
+### Features
+- User registration
+- User login
+- User logout
+- Get current logged-in user
+- JWT token generation
+- JWT token verification
+- Role-based user support:
+  - `resident`
+  - `staff`
+  - `advocate`
+- Password hashing with `bcrypt`
+- Login using username or email
+- Cookie-based authentication support
+- Bearer token authentication support
+
+### Main GraphQL Operations
+
+#### Queries
+- `currentUser`
+
+#### Mutations
+- `register`
+- `login`
+- `logout`
+
+---
+
+## 2) issue-service
+
+The `issue-service` is responsible for issue reporting, tracking, assignment, urgent alerts, and resident notifications.
+
+### Features
+- Report a new issue
+- Store issue details in MongoDB
+- Track issue lifecycle
+- View resident's own issues
+- View all issues for staff and advocates
+- View a specific issue by ID
+- Assign issue to staff
+- Update issue status
+- Mark issue as urgent
+- Remove urgent flag
+- Automatically create notifications when:
+  - issue is reported
+  - issue is assigned
+  - issue status changes
+  - issue is marked urgent
+- View resident notifications
+- Mark notification as read
+
+### Issue Data Supported
+- Title
+- Description
+- Category
+- AI category
+- AI summary
+- Priority
+- Status
+- Photo URL
+- Address
+- Latitude / Longitude
+- Neighborhood
+- Reporter info
+- Assigned staff info
+- Internal notes
+- Urgent alert flag
+
+### Supported Issue Status Values
+- `reported`
+- `under_review`
+- `assigned`
+- `in_progress`
+- `resolved`
+- `closed`
+
+### Main GraphQL Operations
+
+#### Queries
+- `myIssues`
+- `allIssues`
+- `issueById`
+- `urgentIssues`
+- `notifications`
+
+#### Mutations
+- `reportIssue`
+- `updateIssueStatus`
+- `assignIssue`
+- `markUrgent`
+- `markNotificationAsRead`
+
+---
+
+## 3) community-service
+
+The `community-service` is responsible for community engagement features such as comments, upvotes, volunteer interest, and community summaries.
+
+### Features
+- Add comment to an issue
+- View comments for an issue
+- Delete own comment
+- Staff/advocate can delete comments if needed
+- Add upvote to an issue
+- Remove upvote from an issue
+- Prevent duplicate upvotes by the same user on the same issue
+- Express volunteer interest for an issue
+- Prevent duplicate volunteer interest by the same user on the same issue
+- View current user's volunteer interests
+- Staff/advocate can view volunteer interests by issue
+- Staff/advocate can update volunteer interest status
+- Community summary counts for each issue:
+  - total comments
+  - total upvotes
+  - total volunteer interests
+
+### Supported Volunteer Status Values
+- `interested`
+- `contacted`
+- `matched`
+- `closed`
+
+### Main GraphQL Operations
+
+#### Queries
+- `commentsByIssue`
+- `upvotesByIssue`
+- `volunteerInterestsByIssue`
+- `myVolunteerInterests`
+- `communitySummary`
+
+#### Mutations
+- `addComment`
+- `deleteComment`
+- `addUpvote`
+- `removeUpvote`
+- `expressVolunteerInterest`
+- `updateVolunteerInterestStatus`
+
+---
+
+## 4) analytics-ai-service
+
+The `analytics-ai-service` is responsible for AI-powered features and management analytics.
+
+### Features
+- AI issue classification using Gemini
+- AI-generated issue summary
+- AI-generated trend insights
+- AI chatbot question answering
+- Dashboard statistics
+- Category breakdown analytics
+- Neighborhood hotspot analytics
+- Save AI activity logs in MongoDB
+- Read issue data from issue database
+- Read community data from community database
+- Provide management insights for staff and advocates
+
+### AI Capabilities
+- Classify issue into a civic issue category
+- Suggest issue priority
+- Generate short summary for issue description
+- Summarize issue discussion/comments
+- Generate trend analysis across issues
+- Answer natural language chatbot questions based on current issue/community dataset
+
+### Analytics Capabilities
+- Total issues count
+- Open issues count
+- Urgent issues count
+- Resolved issues count
+- Total comments count
+- Total upvotes count
+- Total volunteer interests count
+- Issue count by category
+- Neighborhood hotspots by issue frequency
+
+### AI Log Types
+- `classification`
+- `summary`
+- `trend`
+- `chatbot`
+
+### Main GraphQL Operations
+
+#### Queries
+- `dashboardStats`
+- `issuesByCategory`
+- `neighborhoodHotspots`
+- `recentAiInsightLogs`
+- `classifyIssue`
+- `summarizeIssue`
+- `trendInsights`
+- `chatbotQuery`
+
+---
+
+## 5) server gateway
+
+The `server` folder contains the Apollo Gateway, which acts as the unified GraphQL entry point for all backend services.
+
+### Features
+- Single GraphQL entry point for the whole backend
+- Connects all microservices into one backend API
+- Forwards authentication headers to subgraphs
+- Forwards cookies to subgraphs
+- Forwards auth cookie responses back to client
+- Supports full-system testing through one endpoint
+- Makes frontend integration easier by exposing one GraphQL URL
+
+### Connected Services
+- `auth-service`
+- `issue-service`
+- `community-service`
+- `analytics-ai-service`
+
+### Main Gateway Endpoint
+- `http://localhost:4000/graphql`
+
+---
+
+# Current Backend Role Permissions Summary
+
+## Resident
+A resident can:
+- register
+- login
+- logout
+- get current user
+- report issue
+- view own issues
+- view own notifications
+- mark own notifications as read
+- add comments
+- delete own comments
+- add upvote
+- remove upvote
+- express volunteer interest
+- view own volunteer interests
+- use AI classification
+- use AI summarize issue
+- use chatbot
+
+## Staff
+A staff user can:
+- do everything a logged-in user can do, where allowed
+- view all issues
+- view urgent issues
+- assign issues
+- update issue status
+- mark issues urgent
+- view volunteer interests by issue
+- update volunteer interest status
+- access dashboard stats
+- access issue category analytics
+- access neighborhood hotspots
+- access trend insights
+- view AI logs
+
+## Advocate
+An advocate can:
+- do everything a logged-in user can do, where allowed
+- view all issues
+- view urgent issues
+- view volunteer interests by issue
+- update volunteer interest status
+- access dashboard stats
+- access issue category analytics
+- access neighborhood hotspots
+- access trend insights
+- view AI logs
 
