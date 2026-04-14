@@ -1,0 +1,40 @@
+{
+  "name": "community-service",
+  "version": "1.0.0",
+  "description": "CivicCase Community Engagement Microservice",
+  "main": "community-microservice.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon community-microservice.js",
+    "start": "node community-microservice.js"
+  },
+  "keywords": [
+    "graphql",
+    "apollo",
+    "express",
+    "mongodb",
+    "mongoose",
+    "microservice",
+    "community",
+    "comments",
+    "upvotes",
+    "volunteers"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@apollo/server": "^4.11.3",
+    "@apollo/subgraph": "^2.13.3",
+    "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "graphql": "^16.10.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.10.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

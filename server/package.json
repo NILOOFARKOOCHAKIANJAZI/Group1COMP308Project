@@ -1,0 +1,31 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "CivicCase Apollo Gateway Server",
+  "main": "gateway.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon gateway.js",
+    "start": "node gateway.js"
+  },
+  "keywords": [
+    "apollo-gateway",
+    "graphql",
+    "microservices",
+    "express",
+    "gateway"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@apollo/gateway": "^2.10.0",
+    "@apollo/server": "^4.11.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
