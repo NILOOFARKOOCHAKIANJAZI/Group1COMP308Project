@@ -2,6 +2,11 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { GoogleGenAI } from '@google/genai';
+import { StateGraph, START, END } from "@langchain/langgraph";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { DynamicTool } from "@langchain/core/tools";
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 import AIInsightLog from '../models/aiInsightLog.js';
 import { config } from '../config/config.js';
@@ -306,6 +311,115 @@ const buildIssueDatasetText = (issues, comments, reactions, volunteerInterests) 
     .join('\n');
 };
 
+// Define Tools 
+const issueSearchTool = new DynamicTool({
+  name: "search_community_issues",
+  //wanna search more please change the description and increase the limit in the query
+  description: "Searches for local issues by title or status. Input should be a search string.",
+  func: async (query) => {
+    await ensureAnalyticsSources();
+    // Use MongoDB text search or regex to find specific issues
+    const issues = await IssueModel.find({ 
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { status: { $regex: query, $options: 'i' } },
+      ]
+    }).limit(10).lean();
+    // return JSON.stringify(issues);
+    
+
+    if (issues.length === 0) {
+      return `No issues found matching the query: "${query}". Try searching with different keywords or check for typos.`;
+    }
+
+    const list = issues.map(i => 
+      `- id: ${i._id}  [${i.category.toUpperCase()}] ${i.title} in ${i.location?.neighborhood || 'Unknown'} is currently ${i.status.toUpperCase()}.`
+    ).join('\n');
+
+    return `the following issues match your search query:\n${list}`;
+  },
+});
+
+const findVolunteerNeedIssueTool = new DynamicTool({
+  name: "find_issues_without_volunteers",
+  description: "Finds community issues with zero volunteers. Can filter by title.",
+  func: async (query) => {
+    await ensureAnalyticsSources();
+
+    const issuesWithVolunteers = await VolunteerInterestModel.distinct('issueId');
+
+    //Start with the basic "No Volunteer" and "Open Status" filters
+    let filter = {
+      _id: { $nin: issuesWithVolunteers },
+      status: { $in: ['reported', 'under_review', 'assigned', 'in_progress'] }
+    };
+
+    //Add the Title search ONLY if a query is provided
+    if (query && query.trim() !== "") {
+      filter.title = { $regex: query, $options: 'i' };
+    }
+
+    //Now run the query with the complete filter
+    const issuesWithoutVolunteers = await IssueModel.find(filter)
+      .limit(10)
+      .lean();
+
+    if (issuesWithoutVolunteers.length === 0) {
+      return query 
+        ? `No issues needing volunteers found matching "${query}".`
+        : "All current open issues already have volunteers!";
+    }
+
+    const list = issuesWithoutVolunteers.map(i => 
+      `- id: ${i._id} [${i.category.toUpperCase()}] ${i.title} in ${i.location?.neighborhood || 'Unknown'}`
+    ).join('\n');
+
+    return `The following issues have NO volunteers and match your request:\n${list}`;
+  },
+});
+
+const model = new ChatGoogleGenerativeAI({
+  //for somehow, i need to hardcoded the model here instead of using config.geminiModel
+//gemini-3.1-flash-lite-preview
+  model: 'gemini-3.1-flash-lite-preview',
+  apiKey: config.geminiApiKey,
+});
+
+const tools = [issueSearchTool,findVolunteerNeedIssueTool];
+const toolNode = new ToolNode(tools);
+const modelWithTools = model.bindTools(tools);
+
+//Define the Logic Flow (The State Machine)
+function shouldContinue(state) {
+  const { messages } = state;
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.tool_calls?.length) {
+    return "tools";
+  }
+  return END;
+}
+
+async function callModel(state) {
+  const response = await modelWithTools.invoke(state.messages);
+  return { messages: [response] };
+}
+
+//Compile the Graph
+const workflow = new StateGraph({
+  channels: { messages: { value: (x, y) => x.concat(y), default: () => [] } }
+})
+  .addNode("agent", callModel)
+  .addNode("tools", toolNode)
+  .addEdge(START, "agent")
+  .addConditionalEdges("agent", shouldContinue)
+  .addEdge("tools", "agent");
+
+const agentApp = workflow.compile(
+  {
+      recursionLimit: 5
+  }
+);
+
 const resolvers = {
   JSONString: {
     __serialize(value) {
@@ -581,64 +695,51 @@ ${datasetText || 'No issue data available.'}
       }
     },
 
-    chatbotQuery: async (_, { question }, { user }) => {
-      try {
-        requireAuth(user);
+      chatbotQuery: async (_, { question }, { user }) => {
+        try {
+          requireAuth(user);
+          
 
-        const issues = await getIssueDocuments();
-        const { comments, reactions, volunteerInterests } = await getCommunityDocuments();
+          const formattedMessages = question.map(msg => {
+            return msg.role === 'user' 
+              ? new HumanMessage(msg.content) 
+              : new AIMessage(msg.content);
+          });
 
-        const datasetText = buildIssueDatasetText(
-          issues,
-          comments,
-          reactions,
-          volunteerInterests
-        );
+          const input = {
+            messages: formattedMessages
+          };
+          
+          const response = await agentApp.invoke(input);
+          
+          // const answer = response.messages[response.messages.length - 1].content;
+          const lastMessage = response.messages[response.messages.length - 1];
+          let answer = "";
 
-        const fallbackText =
-          'I could not reach Gemini right now, but based on the current dataset you should review issue counts, urgent flags, and repeated neighborhood reports.';
+          if (typeof lastMessage.content === 'string') {
+            answer = lastMessage.content;
+          } else if (Array.isArray(lastMessage.content)) {
+            answer = lastMessage.content.map(part => part.text || "").join("\n");
+          }
 
-        const prompt = `
-You are CivicCase AI, a municipal issue tracking assistant.
-Answer the user's question using the dataset below.
-Be concise, practical, and do not invent facts outside the dataset.
-
-User question:
-${question}
-
-Dataset:
-${datasetText || 'No issue data available.'}
-`.trim();
-
-        const text = await generateTextWithGemini(prompt, fallbackText);
-
-        await logInsight({
-          insightType: 'chatbot',
-          requestedByUserId: user.userId,
-          requestedByUsername: user.username,
-          prompt,
-          responseText: text,
-          metadata: {
-            question,
-            issueCount: issues.length,
-          },
-        });
-
-        return {
-          success: true,
-          message: 'Chatbot response generated successfully.',
-          text,
-        };
-      } catch (error) {
-        console.error('chatbotQuery error:', error.message);
-
-        return {
-          success: false,
-          message: error.message || 'Failed to generate chatbot response.',
-          text: null,
-        };
-      }
-    },
+          // Final fallback if the AI was silent
+          if (!answer || answer.trim() === "") {
+            answer = "I've processed that request. Is there anything else you'd like to know?";
+          }
+          return {
+            success: true,
+            message: 'Chatbot response generated successfully.',
+            text: answer,
+          };
+        } catch (error) {
+          console.error('chatbotQuery error:', error.message);
+          return {
+            success: false,
+            message: error.message,
+            text: null,
+          };
+        }
+      },
   },
 };
 
