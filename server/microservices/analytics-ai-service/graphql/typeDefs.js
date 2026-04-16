@@ -48,6 +48,11 @@ const typeDefs = `#graphql
     message: String!
     text: String
   }
+    
+  input MessageInput {
+    role: String!    # "user" or "assistant"
+    content: String! # The actual text
+  }
 
   type Query {
     dashboardStats: DashboardStats!
@@ -64,7 +69,7 @@ const typeDefs = `#graphql
     ): AITextResult!
 
     trendInsights: AITextResult!
-    chatbotQuery(question: String!): AITextResult!
+    chatbotQuery(question: [MessageInput!]): AITextResult!
   }
 `;
 
