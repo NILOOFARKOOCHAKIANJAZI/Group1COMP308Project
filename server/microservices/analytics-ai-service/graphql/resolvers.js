@@ -381,7 +381,8 @@ const findVolunteerNeedIssueTool = new DynamicTool({
 const model = new ChatGoogleGenerativeAI({
   //for somehow, i need to hardcoded the model here instead of using config.geminiModel
 //gemini-3.1-flash-lite-preview
-  model: 'gemini-3.1-flash-lite-preview',
+// IF THE MODEL DOESN'T WORK, TRY SWITCHING TO "gemini-2.5-flash" OR "gemini-3.1-flash-lite-preview"
+  model: 'gemini-2.5-flash-lite',
   apiKey: config.geminiApiKey,
 });
 
