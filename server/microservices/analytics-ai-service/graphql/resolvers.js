@@ -6,7 +6,7 @@ import { StateGraph, START, END } from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { DynamicTool } from "@langchain/core/tools";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage,SystemMessage } from "@langchain/core/messages";
 
 import AIInsightLog from '../models/aiInsightLog.js';
 import { config } from '../config/config.js';
@@ -382,7 +382,7 @@ const model = new ChatGoogleGenerativeAI({
   //for somehow, i need to hardcoded the model here instead of using config.geminiModel
 //gemini-3.1-flash-lite-preview
 // IF THE MODEL DOESN'T WORK, TRY SWITCHING TO "gemini-2.5-flash" OR "gemini-3.1-flash-lite-preview"
-  model: 'gemini-2.5-flash-lite',
+  model: 'gemini-2.5-flash',
   apiKey: config.geminiApiKey,
 });
 
@@ -701,12 +701,20 @@ ${datasetText || 'No issue data available.'}
           requireAuth(user);
           
 
-          const formattedMessages = question.map(msg => {
-            return msg.role === 'user' 
-              ? new HumanMessage(msg.content) 
-              : new AIMessage(msg.content);
-          });
+          // const formattedMessages = question.map(msg => {
+          //   return msg.role === 'user' 
+          //     ? new HumanMessage(msg.content) 
+          //     : new AIMessage(msg.content);
+          // });
+          const systemMessage = new SystemMessage(
+            "You are a helpful Community Assistant. Use the issueSearchTool to search for issues by title or status" +
+            "and use findVolunteerNeedIssueTool to find volunteer opportunities. Always be polite and concise."
+          );
 
+          const formattedMessages = [
+            systemMessage, 
+            ...question.map(msg => msg.role === 'user' ? new HumanMessage(msg.content) : new AIMessage(msg.content))
+          ];
           const input = {
             messages: formattedMessages
           };
@@ -716,7 +724,7 @@ ${datasetText || 'No issue data available.'}
           // const answer = response.messages[response.messages.length - 1].content;
           const lastMessage = response.messages[response.messages.length - 1];
           let answer = "";
-
+          // console.log("Raw model response:", response);
           if (typeof lastMessage.content === 'string') {
             answer = lastMessage.content;
           } else if (Array.isArray(lastMessage.content)) {
