@@ -96,7 +96,7 @@ const startServer = async () => {
       console.log(`🚀 Community Service ready at http://localhost:${config.port}/graphql`);
     });
   } catch (error) {
-    console.error('❌ Failed to start Community Service:', error.message);
+    console.error('Failed to start Community Service:', error.message);
   }
 };
 

@@ -17,7 +17,6 @@ export const REGISTER_MUTATION = gql`
     ) {
       success
       message
-      token
       user {
         id
         fullName
@@ -36,7 +35,6 @@ export const LOGIN_MUTATION = gql`
     login(usernameOrEmail: $usernameOrEmail, password: $password) {
       success
       message
-      token
       user {
         id
         fullName

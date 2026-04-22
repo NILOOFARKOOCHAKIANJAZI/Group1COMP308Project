@@ -1,4 +1,3 @@
-// server/gateway.js
 import dotenv from 'dotenv';
 dotenv.config({ path: './.env' });
 
@@ -16,6 +15,7 @@ import {
 const app = express();
 
 const gatewayPort = process.env.GATEWAY_PORT || 4000;
+
 const clientOrigins = (
   process.env.CLIENT_ORIGINS ||
   'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:4000,https://studio.apollographql.com'
@@ -35,7 +35,7 @@ app.use(
   cors({
     origin: clientOrigins,
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -44,20 +44,19 @@ app.use(cookieParser());
 
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
-    if (context.authorization) {
-      request.http.headers.set('authorization', context.authorization);
-    }
-
     if (context.cookie) {
       request.http.headers.set('cookie', context.cookie);
     }
   }
 
   didReceiveResponse({ response, context }) {
-    // Forward Set-Cookie headers from subgraph back to browser
+    if (!context?.res || !response?.http?.headers) {
+      return response;
+    }
+
     const setCookieHeader = response.http.headers.get('set-cookie');
 
-    if (setCookieHeader && context.res) {
+    if (setCookieHeader) {
       context.res.setHeader('set-cookie', setCookieHeader);
     }
 
@@ -92,16 +91,14 @@ const startGateway = async () => {
       '/graphql',
       expressMiddleware(server, {
         context: async ({ req, res }) => {
-          const authorization = req.headers.authorization || '';
           const cookie = req.headers.cookie || '';
 
           return {
-            authorization,
             cookie,
             res,
           };
         },
-      })
+      }),
     );
 
     app.get('/', (_, res) => {

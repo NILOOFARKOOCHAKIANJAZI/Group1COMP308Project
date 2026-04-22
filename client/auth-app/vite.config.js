@@ -11,11 +11,16 @@ export default defineConfig({
       exposes: {
         './AuthApp': './src/App.jsx',
       },
-      shared: ['react', 'react-dom'],
+      shared: ['react', 'react-dom', '@apollo/client', 'graphql'],
     }),
   ],
   server: {
-    port: 3002,
+    port: 3001,
+    strictPort: true,
+  },
+  preview: {
+    port: 3001,
+    strictPort: true,
   },
   build: {
     modulePreload: false,

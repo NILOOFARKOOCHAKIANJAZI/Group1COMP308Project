@@ -1,15 +1,37 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import federation from "@originjs/vite-plugin-federation";
 
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    proxy: {
-      "/graphql": {
-        target: "http://localhost:4000",
-        changeOrigin: true,
-        secure: false,
+  plugins: [
+    react(),
+    federation({
+      name: "issueApp",
+      filename: "remoteEntry.js",
+      exposes: {
+        "./IssueApp": "./src/bootstrap.jsx",
       },
-    },
+      shared: [
+        "react",
+        "react-dom",
+        "react-router-dom",
+        "@apollo/client",
+        "graphql",
+      ],
+    }),
+  ],
+  server: {
+    port: 3002,
+    strictPort: true,
+  },
+  preview: {
+    port: 3002,
+    strictPort: true,
+  },
+  build: {
+    modulePreload: false,
+    target: "esnext",
+    minify: false,
+    cssCodeSplit: false,
   },
 });

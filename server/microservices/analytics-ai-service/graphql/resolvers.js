@@ -1,17 +1,18 @@
 // analytics-ai-service/graphql/resolvers.js
 import mongoose from 'mongoose';
-import jwt from 'jsonwebtoken';
+
 import { GoogleGenAI } from '@google/genai';
-import { StateGraph, START, END } from "@langchain/langgraph";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { DynamicTool } from "@langchain/core/tools";
-import { HumanMessage, AIMessage,SystemMessage } from "@langchain/core/messages";
+import { StateGraph, START, END } from '@langchain/langgraph';
+import { ToolNode } from '@langchain/langgraph/prebuilt';
+import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
+import { DynamicTool } from '@langchain/core/tools';
+import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages';
 
 import AIInsightLog from '../models/aiInsightLog.js';
 import { config } from '../config/config.js';
 
 const privilegedRoles = ['staff', 'advocate'];
+const OPEN_STATUSES = ['reported', 'under_review', 'assigned', 'in_progress'];
 
 const requireAuth = (user) => {
   if (!user) {
@@ -311,91 +312,312 @@ const buildIssueDatasetText = (issues, comments, reactions, volunteerInterests) 
     .join('\n');
 };
 
-// Define Tools 
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const formatIssueLine = (issue) => {
+  const category = issue.category || issue.aiCategory || 'other';
+  const neighborhood = issue.location?.neighborhood || 'Unknown';
+  const status = issue.status || 'reported';
+  const priority = issue.priority || 'medium';
+  const urgentTag = issue.urgentAlert ? ' | URGENT' : '';
+
+  return `- id: ${issue._id} [${String(category).toUpperCase()}] ${issue.title || 'Untitled issue'} in ${neighborhood} is currently ${String(
+    status
+  ).toUpperCase()} | priority: ${String(priority).toUpperCase()}${urgentTag}`;
+};
+
+const extractKeyword = (query) => {
+  const raw = String(query || '').toLowerCase().trim();
+
+  if (!raw) {
+    return '';
+  }
+
+  const cleaned = raw
+    .replace(/[^\w\s-]/g, ' ')
+    .replace(
+      /\b(show|find|search|list|get|me|the|all|any|for|with|without|issues?|issue|open|closed|resolved|currently|please|about|need|needs|volunteers?|volunteer|community|local)\b/g,
+      ' '
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return cleaned || raw;
+};
+
+// Define Tools
 const issueSearchTool = new DynamicTool({
-  name: "search_community_issues",
-  //wanna search more please change the description and increase the limit in the query
-  description: "Searches for local issues by title or status. Input should be a search string.",
+  name: 'search_community_issues',
+  description:
+    'Searches for local issues by keyword across title, description, category, AI category, neighborhood, priority, and status. Input should be a natural-language civic issue query.',
   func: async (query) => {
     await ensureAnalyticsSources();
-    // Use MongoDB text search or regex to find specific issues
-    const issues = await IssueModel.find({ 
-      $or: [
-        { title: { $regex: query, $options: 'i' } },
-        { status: { $regex: query, $options: 'i' } },
-      ]
-    }).limit(10).lean();
-    // return JSON.stringify(issues);
-    
 
-    if (issues.length === 0) {
-      return `No issues found matching the query: "${query}". Try searching with different keywords or check for typos.`;
+    const rawQuery = String(query || '').trim();
+    const keyword = extractKeyword(rawQuery);
+    const searchTerm = keyword || rawQuery;
+
+    let filter = {};
+
+    if (searchTerm) {
+      const safeRegex = new RegExp(escapeRegex(searchTerm), 'i');
+      filter = {
+        $or: [
+          { title: safeRegex },
+          { description: safeRegex },
+          { category: safeRegex },
+          { aiCategory: safeRegex },
+          { status: safeRegex },
+          { priority: safeRegex },
+          { 'location.neighborhood': safeRegex },
+        ],
+      };
     }
 
-    const list = issues.map(i => 
-      `- id: ${i._id}  [${i.category.toUpperCase()}] ${i.title} in ${i.location?.neighborhood || 'Unknown'} is currently ${i.status.toUpperCase()}.`
-    ).join('\n');
+    const issues = await IssueModel.find(filter).sort({ createdAt: -1 }).limit(10).lean();
 
-    return `the following issues match your search query:\n${list}`;
+    if (issues.length === 0) {
+      return rawQuery
+        ? `No issues found matching "${rawQuery}". Try a simpler keyword such as "flooding", "pothole", "garbage", or a neighborhood name.`
+        : 'No issues were found in the current dataset.';
+    }
+
+    const list = issues.map(formatIssueLine).join('\n');
+
+    return searchTerm
+      ? `The following issues match "${searchTerm}":\n${list}`
+      : `Here are the most recent issues:\n${list}`;
   },
 });
 
 const findVolunteerNeedIssueTool = new DynamicTool({
-  name: "find_issues_without_volunteers",
-  description: "Finds community issues with zero volunteers. Can filter by title.",
+  name: 'find_issues_without_volunteers',
+  description:
+    'Finds open community issues with zero volunteers. Can filter by keyword across title, description, category, AI category, or neighborhood.',
   func: async (query) => {
     await ensureAnalyticsSources();
 
     const issuesWithVolunteers = await VolunteerInterestModel.distinct('issueId');
+    const rawQuery = String(query || '').trim();
+    const keyword = extractKeyword(rawQuery);
+    const searchTerm = keyword || rawQuery;
 
-    //Start with the basic "No Volunteer" and "Open Status" filters
-    let filter = {
+    const filter = {
       _id: { $nin: issuesWithVolunteers },
-      status: { $in: ['reported', 'under_review', 'assigned', 'in_progress'] }
+      status: { $in: OPEN_STATUSES },
     };
 
-    //Add the Title search ONLY if a query is provided
-    if (query && query.trim() !== "") {
-      filter.title = { $regex: query, $options: 'i' };
+    if (searchTerm) {
+      const safeRegex = new RegExp(escapeRegex(searchTerm), 'i');
+      filter.$or = [
+        { title: safeRegex },
+        { description: safeRegex },
+        { category: safeRegex },
+        { aiCategory: safeRegex },
+        { 'location.neighborhood': safeRegex },
+      ];
     }
 
-    //Now run the query with the complete filter
     const issuesWithoutVolunteers = await IssueModel.find(filter)
+      .sort({ urgentAlert: -1, createdAt: -1 })
       .limit(10)
       .lean();
 
     if (issuesWithoutVolunteers.length === 0) {
-      return query 
-        ? `No issues needing volunteers found matching "${query}".`
-        : "All current open issues already have volunteers!";
+      return searchTerm
+        ? `No open issues needing volunteers were found for "${searchTerm}".`
+        : 'All current open issues already have volunteers.';
     }
 
-    const list = issuesWithoutVolunteers.map(i => 
-      `- id: ${i._id} [${i.category.toUpperCase()}] ${i.title} in ${i.location?.neighborhood || 'Unknown'}`
-    ).join('\n');
+    const list = issuesWithoutVolunteers.map(formatIssueLine).join('\n');
 
-    return `The following issues have NO volunteers and match your request:\n${list}`;
+    return searchTerm
+      ? `The following open issues have no volunteers and match "${searchTerm}":\n${list}`
+      : `The following open issues currently have no volunteers:\n${list}`;
+  },
+});
+
+const totalIssueCountTool = new DynamicTool({
+  name: 'get_total_issue_count',
+  description: 'Returns the total number of issues in the system.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const totalIssues = await IssueModel.countDocuments({});
+    return `There are ${totalIssues} total issues in the system.`;
+  },
+});
+
+const openIssueCountTool = new DynamicTool({
+  name: 'get_open_issue_count',
+  description: 'Returns the total number of open issues in the system.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const openIssues = await IssueModel.countDocuments({
+      status: { $in: OPEN_STATUSES },
+    });
+
+    return `There are ${openIssues} open issues in the system. Open issues are defined as: ${OPEN_STATUSES.join(
+      ', '
+    )}.`;
+  },
+});
+
+const resolvedIssueCountTool = new DynamicTool({
+  name: 'get_resolved_issue_count',
+  description: 'Returns the total number of resolved issues in the system.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const resolvedIssues = await IssueModel.countDocuments({ status: 'resolved' });
+    return `There are ${resolvedIssues} resolved issues in the system.`;
+  },
+});
+
+const urgentIssueSummaryTool = new DynamicTool({
+  name: 'get_urgent_issue_summary',
+  description:
+    'Returns a summary of urgent issues, including count and up to 10 urgent issues sorted by newest first.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const urgentIssues = await IssueModel.find({ urgentAlert: true })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    if (urgentIssues.length === 0) {
+      return 'There are currently no urgent issues flagged in the system.';
+    }
+
+    const list = urgentIssues.map(formatIssueLine).join('\n');
+    return `There are ${urgentIssues.length} urgent issues in the current result set. Here are the urgent issues:\n${list}`;
+  },
+});
+
+const issuesByCategoryTool = new DynamicTool({
+  name: 'get_issues_by_category',
+  description:
+    'Returns issue counts grouped by category so the assistant can identify the most common issue categories.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const results = await IssueModel.aggregate([
+      {
+        $group: {
+          _id: {
+            $ifNull: ['$category', { $ifNull: ['$aiCategory', 'other'] }],
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 10 },
+    ]);
+
+    if (!results.length) {
+      return 'No issue category data is available.';
+    }
+
+    const lines = results.map((item) => `- ${item._id || 'other'}: ${item.count}`).join('\n');
+    return `Top issue categories:\n${lines}`;
+  },
+});
+
+const issuesByNeighborhoodTool = new DynamicTool({
+  name: 'get_issues_by_neighborhood',
+  description:
+    'Returns issue counts grouped by neighborhood so the assistant can identify hotspots and neighborhoods needing attention.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const results = await IssueModel.aggregate([
+      {
+        $group: {
+          _id: {
+            $ifNull: ['$location.neighborhood', 'Unknown'],
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 10 },
+    ]);
+
+    if (!results.length) {
+      return 'No neighborhood issue data is available.';
+    }
+
+    const lines = results.map((item) => `- ${item._id || 'Unknown'}: ${item.count}`).join('\n');
+    return `Neighborhood issue totals:\n${lines}`;
+  },
+});
+
+const dashboardSummaryTool = new DynamicTool({
+  name: 'get_dashboard_summary',
+  description:
+    'Returns a compact dashboard summary including total issues, open issues, resolved issues, urgent issues, comments, upvotes, and volunteer interests.',
+  func: async () => {
+    await ensureAnalyticsSources();
+
+    const [
+      totalIssues,
+      openIssues,
+      resolvedIssues,
+      urgentIssues,
+      totalComments,
+      totalUpvotes,
+      totalVolunteerInterests,
+    ] = await Promise.all([
+      IssueModel.countDocuments({}),
+      IssueModel.countDocuments({ status: { $in: OPEN_STATUSES } }),
+      IssueModel.countDocuments({ status: 'resolved' }),
+      IssueModel.countDocuments({ urgentAlert: true }),
+      CommentModel.countDocuments({}),
+      IssueReactionModel.countDocuments({ reactionType: 'upvote' }),
+      VolunteerInterestModel.countDocuments({}),
+    ]);
+
+    return [
+      'Dashboard summary:',
+      `- Total issues: ${totalIssues}`,
+      `- Open issues: ${openIssues}`,
+      `- Resolved issues: ${resolvedIssues}`,
+      `- Urgent issues: ${urgentIssues}`,
+      `- Comments: ${totalComments}`,
+      `- Upvotes: ${totalUpvotes}`,
+      `- Volunteer interests: ${totalVolunteerInterests}`,
+    ].join('\n');
   },
 });
 
 const model = new ChatGoogleGenerativeAI({
-  //for somehow, i need to hardcoded the model here instead of using config.geminiModel
-//gemini-3.1-flash-lite-preview
-// IF THE MODEL DOESN'T WORK, TRY SWITCHING TO "gemini-2.5-flash" OR "gemini-3.1-flash-lite-preview"
-  model: 'gemini-2.5-flash',
+  model: config.geminiModel || 'gemini-1.5-flash',
   apiKey: config.geminiApiKey,
 });
 
-const tools = [issueSearchTool,findVolunteerNeedIssueTool];
+const tools = [
+  issueSearchTool,
+  findVolunteerNeedIssueTool,
+  totalIssueCountTool,
+  openIssueCountTool,
+  resolvedIssueCountTool,
+  urgentIssueSummaryTool,
+  issuesByCategoryTool,
+  issuesByNeighborhoodTool,
+  dashboardSummaryTool,
+];
+
 const toolNode = new ToolNode(tools);
 const modelWithTools = model.bindTools(tools);
 
-//Define the Logic Flow (The State Machine)
+// Define the Logic Flow (The State Machine)
 function shouldContinue(state) {
   const { messages } = state;
   const lastMessage = messages[messages.length - 1];
   if (lastMessage.tool_calls?.length) {
-    return "tools";
+    return 'tools';
   }
   return END;
 }
@@ -405,21 +627,19 @@ async function callModel(state) {
   return { messages: [response] };
 }
 
-//Compile the Graph
+// Compile the Graph
 const workflow = new StateGraph({
-  channels: { messages: { value: (x, y) => x.concat(y), default: () => [] } }
+  channels: { messages: { value: (x, y) => x.concat(y), default: () => [] } },
 })
-  .addNode("agent", callModel)
-  .addNode("tools", toolNode)
-  .addEdge(START, "agent")
-  .addConditionalEdges("agent", shouldContinue)
-  .addEdge("tools", "agent");
+  .addNode('agent', callModel)
+  .addNode('tools', toolNode)
+  .addEdge(START, 'agent')
+  .addConditionalEdges('agent', shouldContinue)
+  .addEdge('tools', 'agent');
 
-const agentApp = workflow.compile(
-  {
-      recursionLimit: 5
-  }
-);
+const agentApp = workflow.compile({
+  recursionLimit: 5,
+});
 
 const resolvers = {
   JSONString: {
@@ -434,18 +654,25 @@ const resolvers = {
 
       await ensureAnalyticsSources();
 
-      const [totalIssues, openIssues, urgentIssues, resolvedIssues, totalComments, totalUpvotes, totalVolunteerInterests] =
-        await Promise.all([
-          IssueModel.countDocuments({}),
-          IssueModel.countDocuments({
-            status: { $in: ['reported', 'under_review', 'assigned', 'in_progress'] },
-          }),
-          IssueModel.countDocuments({ urgentAlert: true }),
-          IssueModel.countDocuments({ status: 'resolved' }),
-          CommentModel.countDocuments({}),
-          IssueReactionModel.countDocuments({ reactionType: 'upvote' }),
-          VolunteerInterestModel.countDocuments({}),
-        ]);
+      const [
+        totalIssues,
+        openIssues,
+        urgentIssues,
+        resolvedIssues,
+        totalComments,
+        totalUpvotes,
+        totalVolunteerInterests,
+      ] = await Promise.all([
+        IssueModel.countDocuments({}),
+        IssueModel.countDocuments({
+          status: { $in: OPEN_STATUSES },
+        }),
+        IssueModel.countDocuments({ urgentAlert: true }),
+        IssueModel.countDocuments({ status: 'resolved' }),
+        CommentModel.countDocuments({}),
+        IssueReactionModel.countDocuments({ reactionType: 'upvote' }),
+        VolunteerInterestModel.countDocuments({}),
+      ]);
 
       return {
         totalIssues,
@@ -467,7 +694,7 @@ const resolvers = {
         {
           $group: {
             _id: {
-              $ifNull: ['$category', 'other'],
+              $ifNull: ['$category', { $ifNull: ['$aiCategory', 'other'] }],
             },
             count: { $sum: 1 },
           },
@@ -540,10 +767,7 @@ Issue title: ${title}
 Issue description: ${description}
 `.trim();
 
-        const rawText = await generateTextWithGemini(
-          prompt,
-          JSON.stringify(fallback)
-        );
+        const rawText = await generateTextWithGemini(prompt, JSON.stringify(fallback));
 
         const parsed = extractJsonObject(rawText) || fallback;
 
@@ -660,6 +884,8 @@ Using the issue dataset below, produce a short management insight report with:
 3. neighborhoods needing attention
 4. one practical municipal recommendation
 
+Do not fabricate exact counts unless they are clearly supported by the dataset. If uncertain, use approximate language such as "several", "multiple", or "frequent".
+
 Dataset:
 ${datasetText || 'No issue data available.'}
 `.trim();
@@ -696,59 +922,114 @@ ${datasetText || 'No issue data available.'}
       }
     },
 
-      chatbotQuery: async (_, { question }, { user }) => {
-        try {
-          requireAuth(user);
-          
+    chatbotQuery: async (_, { question }, { user }) => {
+      try {
+        requireAuth(user);
 
-          // const formattedMessages = question.map(msg => {
-          //   return msg.role === 'user' 
-          //     ? new HumanMessage(msg.content) 
-          //     : new AIMessage(msg.content);
-          // });
-          const systemMessage = new SystemMessage(
-            "You are a helpful Community Assistant. Use the issueSearchTool to search for issues by title or status" +
-            "and use findVolunteerNeedIssueTool to find volunteer opportunities. Always be polite and concise."
-          );
-
-          const formattedMessages = [
-            systemMessage, 
-            ...question.map(msg => msg.role === 'user' ? new HumanMessage(msg.content) : new AIMessage(msg.content))
-          ];
-          const input = {
-            messages: formattedMessages
-          };
-          
-          const response = await agentApp.invoke(input);
-          
-          // const answer = response.messages[response.messages.length - 1].content;
-          const lastMessage = response.messages[response.messages.length - 1];
-          let answer = "";
-          // console.log("Raw model response:", response);
-          if (typeof lastMessage.content === 'string') {
-            answer = lastMessage.content;
-          } else if (Array.isArray(lastMessage.content)) {
-            answer = lastMessage.content.map(part => part.text || "").join("\n");
-          }
-
-          // Final fallback if the AI was silent
-          if (!answer || answer.trim() === "") {
-            answer = "I've processed that request. Is there anything else you'd like to know?";
-          }
-          return {
-            success: true,
-            message: 'Chatbot response generated successfully.',
-            text: answer,
-          };
-        } catch (error) {
-          console.error('chatbotQuery error:', error.message);
+        if (!Array.isArray(question) || question.length === 0) {
           return {
             success: false,
-            message: error.message,
+            message: 'At least one message is required.',
             text: null,
           };
         }
-      },
+
+        const sanitizedMessages = question
+          .filter(
+            (message) =>
+              message &&
+              typeof message.content === 'string' &&
+              typeof message.role === 'string'
+          )
+          .map((message) => ({
+            role: message.role === 'assistant' ? 'assistant' : 'user',
+            content: message.content.trim(),
+          }))
+          .filter((message) => message.content.length > 0);
+
+        if (sanitizedMessages.length === 0) {
+          return {
+            success: false,
+            message: 'No valid chat messages were provided.',
+            text: null,
+          };
+        }
+
+        const systemMessage = new SystemMessage(
+          'You are a civic analytics assistant for the CivicCase municipal issue tracker. ' +
+            'You can help with issue counts, open and resolved issues, urgent issues, category trends, neighborhood hotspots, volunteer gaps, dashboard-style summaries, and searches for specific community issues. ' +
+            'Use the available tools whenever a question depends on current issue data or exact counts. ' +
+            'Answer clearly, professionally, and concisely for civic operations and community support. ' +
+            'Do not fabricate exact counts unless they are supported by tool results. ' +
+            'If a question is unrelated to civic issues, municipal operations, community support, or the available issue dataset, politely say that you are limited to CivicCase civic issue assistance and invite the user to ask about community issues or analytics.'
+        );
+
+        const formattedMessages = [
+          systemMessage,
+          ...sanitizedMessages.map((message) =>
+            message.role === 'assistant'
+              ? new AIMessage(message.content)
+              : new HumanMessage(message.content)
+          ),
+        ];
+
+        const response = await agentApp.invoke({
+          messages: formattedMessages,
+        });
+
+        const lastMessage = response.messages[response.messages.length - 1];
+        let answer = '';
+
+        if (typeof lastMessage?.content === 'string') {
+          answer = lastMessage.content;
+        } else if (Array.isArray(lastMessage?.content)) {
+          answer = lastMessage.content.map((part) => part?.text || '').join('\n').trim();
+        }
+
+        if (!answer) {
+          answer = "I've processed that request. Is there anything else you'd like to know?";
+        }
+
+        await logInsight({
+          insightType: 'chatbot',
+          requestedByUserId: user.userId,
+          requestedByUsername: user.username,
+          prompt: JSON.stringify(sanitizedMessages),
+          responseText: answer,
+          metadata: {
+            messageCount: sanitizedMessages.length,
+          },
+        });
+
+        return {
+          success: true,
+          message: 'Chatbot response generated successfully.',
+          text: answer,
+        };
+      } catch (error) {
+        console.error('chatbotQuery error:', error.message);
+
+        const normalizedMessage = String(error?.message || '');
+
+        if (
+          normalizedMessage.toLowerCase().includes('quota') ||
+          normalizedMessage.includes('429')
+        ) {
+          return {
+            success: false,
+            message:
+              'The AI service is temporarily unavailable because the request quota has been reached. Please retry shortly.',
+            text: null,
+          };
+        }
+
+        return {
+          success: false,
+          message: error.message || 'Failed to generate chatbot response.',
+          text: null,
+        };
+      }
+    },
   },
 };
 

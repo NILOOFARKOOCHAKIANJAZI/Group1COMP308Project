@@ -1,121 +1,166 @@
-import { gql } from '@apollo/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLazyQuery } from '@apollo/client/react'
-import { useState } from 'react'
+import { CHATBOT_QUERY } from '../graphql/queries'
 
-const GET_CHAT_MESSAGES = gql`
-  query Chatbot($question: [MessageInput!]!) {
-    chatbotQuery(question: $question) {
-      text
-      success
-      message
-    }
-  }
-`
+const starterPrompts = [
+  'Show open flooding issues.',
+  'Which neighborhoods need the most attention?',
+  'Find issues without volunteers.',
+  'Summarize recent community issue trends.',
+]
 
 export default function AiChatBox() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])
-  const [isOpen, setIsOpen] = useState(false)
+  const [chatError, setChatError] = useState('')
 
-  const [sendQuery, { loading }] = useLazyQuery(GET_CHAT_MESSAGES)
+  const messageContainerRef = useRef(null)
 
-  const handleSend = async () => {
-    if (!input.trim()) return
+  const [sendQuery, { loading }] = useLazyQuery(CHATBOT_QUERY, {
+    fetchPolicy: 'no-cache',
+  })
 
-    const newMessages = [
-      ...messages,
-      { role: 'user', content: input }
-    ]
+  const hasMessages = useMemo(() => messages.length > 0, [messages])
 
-    setMessages(newMessages)
+  useEffect(() => {
+    if (messageContainerRef.current) {
+      messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight
+    }
+  }, [messages, loading])
 
-    const { data } = await sendQuery({
-      variables: {
-        question: newMessages
-      }
-    })
+  const handleSend = async (overrideText = '') => {
+    const textToSend = (overrideText || input).trim()
 
-    if (data?.chatbotQuery?.text) {
-      setMessages([
-        ...newMessages,
-        { role: 'assistant', content: data.chatbotQuery.text }
-      ])
+    if (!textToSend || loading) {
+      return
     }
 
-    setInput('')
+    setChatError('')
+
+    const nextMessages = [...messages, { role: 'user', content: textToSend }]
+    setMessages(nextMessages)
+
+    try {
+      const { data } = await sendQuery({
+        variables: {
+          question: nextMessages,
+        },
+      })
+
+      const payload = data?.chatbotQuery
+
+      if (!payload?.success) {
+        throw new Error(payload?.message || 'The chatbot could not process your request.')
+      }
+
+      setMessages([
+        ...nextMessages,
+        {
+          role: 'assistant',
+          content: payload.text || 'No response was returned.',
+        },
+      ])
+    } catch (error) {
+      setChatError(error.message || 'The chatbot request failed.')
+    } finally {
+      setInput('')
+    }
   }
 
- return (
-    <div className="container mt-5">
-      <div className="card shadow mx-auto" style={{ maxWidth: '400px' }}>
-        
-        {/* Clickable Header */}
-        <div 
-          className="card-header bg-primary text-white d-flex align-items-center justify-content-between py-3"
-          onClick={() => setIsOpen(!isOpen)}
-          style={{ cursor: 'pointer', userSelect: 'none' }}
-        >
-          <div className="d-flex align-items-center">
-            <h6 className="mb-0">AI Assistant</h6>
-          </div>
-          <div className="d-flex align-items-center">
-            {loading && <div className="spinner-border spinner-border-sm me-2" role="status"></div>}
-            {/* Visual indicator for toggle */}
-            <span>{isOpen ? '−' : '＋'}</span>
-          </div>
+  const handleReset = () => {
+    setMessages([])
+    setInput('')
+    setChatError('')
+  }
+
+  return (
+    <section className="panel-card panel-card-wide">
+      <div className="panel-header">
+        <div>
+          <p className="eyebrow">Agentic chatbot</p>
+          <h2>AI Civic Assistant</h2>
         </div>
-
-        {/* Collapsible Section */}
-        {isOpen && (
-          <>
-            <div 
-              className="card-body bg-light" 
-              style={{ height: '350px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
-            >
-              {messages.length === 0 && (
-                <div className="text-center text-muted my-auto small">
-                  <p>Ask me anything!</p>
-                </div>
-              )}
-
-              {messages.map((msg, i) => (
-                <div 
-                  key={i} 
-                  className={`mb-3 d-flex ${msg.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
-                >
-                  <div 
-                    className={`p-2 px-3 rounded-3 shadow-sm ${
-                      msg.role === 'user' ? 'bg-primary text-white' : 'bg-white border text-dark'
-                    }`}
-                    style={{ maxWidth: '85%', fontSize: '0.9rem' }}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="card-footer bg-white border-top-0 py-3">
-              <div className="input-group input-group-sm">
-                <input
-                  className="form-control shadow-none"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="Type a message..."
-                />
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleSend} 
-                  disabled={loading || !input.trim()}
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </>
-        )}
       </div>
-    </div>
+
+      <p className="chat-helper">
+        Ask about open issues, volunteer gaps, neighborhoods that need attention, or general civic
+        trends.
+      </p>
+
+      {!hasMessages ? (
+        <div className="starter-prompts">
+          {starterPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              className="starter-prompt-btn"
+              onClick={() => handleSend(prompt)}
+              disabled={loading}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="chat-messages" ref={messageContainerRef}>
+        {!hasMessages ? (
+          <div className="empty-chat-state">
+            <p>No messages yet.</p>
+            <small>Start with one of the suggested prompts or ask your own question.</small>
+          </div>
+        ) : null}
+
+        {messages.map((message, index) => (
+          <div
+            key={`${message.role}-${index}`}
+            className={`chat-row ${message.role === 'user' ? 'chat-row-user' : 'chat-row-assistant'}`}
+          >
+            <div
+              className={`chat-bubble ${
+                message.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'
+              }`}
+            >
+              {message.content}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {chatError ? <div className="panel-error">{chatError}</div> : null}
+
+      <div className="chat-input-row">
+        <input
+          className="chat-input"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              handleSend()
+            }
+          }}
+          placeholder="Ask about open issues, trends, or volunteer needs..."
+        />
+
+        <button
+          type="button"
+          className="panel-primary-btn"
+          onClick={() => handleSend()}
+          disabled={loading || !input.trim()}
+        >
+          {loading ? 'Sending...' : 'Send'}
+        </button>
+
+        <button
+          type="button"
+          className="panel-secondary-btn"
+          onClick={handleReset}
+          disabled={loading && !hasMessages}
+        >
+          Reset
+        </button>
+      </div>
+    </section>
   )
 }

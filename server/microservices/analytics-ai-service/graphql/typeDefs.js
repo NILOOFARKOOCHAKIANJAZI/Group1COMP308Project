@@ -1,4 +1,3 @@
-// analytics-ai-service/graphql/typeDefs.js
 const typeDefs = `#graphql
   type AIInsightLog {
     id: ID!
@@ -48,10 +47,10 @@ const typeDefs = `#graphql
     message: String!
     text: String
   }
-    
+
   input MessageInput {
-    role: String!    # "user" or "assistant"
-    content: String! # The actual text
+    role: String!
+    content: String!
   }
 
   type Query {
@@ -69,8 +68,8 @@ const typeDefs = `#graphql
     ): AITextResult!
 
     trendInsights: AITextResult!
-    chatbotQuery(question: [MessageInput!]): AITextResult!
+    chatbotQuery(question: [MessageInput!]!): AITextResult!
   }
-`;
+`
 
-export default typeDefs;
+export default typeDefs

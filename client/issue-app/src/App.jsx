@@ -1,5 +1,5 @@
-import AppRoutes from "./routes/AppRoutes";
+import IssueApp from './bootstrap'
 
 export default function App() {
-  return <AppRoutes />;
+  return <IssueApp />
 }

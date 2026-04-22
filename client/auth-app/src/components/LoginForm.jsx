@@ -23,10 +23,13 @@ export default function LoginForm() {
     setErrorMessage('')
 
     try {
-      await login(formData)
+      await login({
+        usernameOrEmail: formData.usernameOrEmail.trim(),
+        password: formData.password,
+      })
       setFormData(initialState)
     } catch (error) {
-      setErrorMessage(error.message)
+      setErrorMessage(error.message || 'Login failed.')
     }
   }
 
@@ -46,6 +49,7 @@ export default function LoginForm() {
           value={formData.usernameOrEmail}
           onChange={handleChange}
           required
+          autoComplete="username"
         />
       </label>
 
@@ -57,6 +61,7 @@ export default function LoginForm() {
           value={formData.password}
           onChange={handleChange}
           required
+          autoComplete="current-password"
         />
       </label>
 

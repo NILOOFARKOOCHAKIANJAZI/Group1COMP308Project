@@ -1,72 +1,55 @@
-import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
-import { useQuery } from "@apollo/client/react";
-import ReportIssuePage from "../pages/resident/ReportIssuePage";
-import MyIssuesPage from "../pages/resident/MyIssuesPage";
-import IssueDetailsPage from "../pages/resident/IssueDetailsPage";
-import NotificationsPage from "../pages/resident/NotificationsPage";
-import NotFoundPage from "../pages/NotFoundPage";
-import { GET_NOTIFICATIONS } from "../graphql/queries/notificationQueries";
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@apollo/client/react'
+import ReportIssuePage from '../pages/resident/ReportIssuePage'
+import MyIssuesPage from '../pages/resident/MyIssuesPage'
+import IssueDetailsPage from '../pages/resident/IssueDetailsPage'
+import NotificationsPage from '../pages/resident/NotificationsPage'
+import NotFoundPage from '../pages/NotFoundPage'
+import { GET_NOTIFICATIONS } from '../graphql/queries/notificationQueries'
 
 function Navigation() {
-  const location = useLocation();
+  const location = useLocation()
 
   const { data } = useQuery(GET_NOTIFICATIONS, {
-    fetchPolicy: "network-only",
-    pollInterval: 5000, // auto refresh every 5s
-  });
+    fetchPolicy: 'network-only',
+    pollInterval: 5000,
+  })
 
-  const notifications = data?.notifications || [];
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const notifications = data?.notifications || []
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length
 
   const links = [
-    { to: "/report-issue", label: "Report Issue" },
-    { to: "/my-issues", label: "My Issues" },
-    { to: "/notifications", label: "Notifications" },
-  ];
+    { to: '/report-issue', label: 'Report Issue' },
+    { to: '/my-issues', label: 'My Issues' },
+    { to: '/notifications', label: 'Notifications' },
+  ]
 
   return (
     <nav className="top-nav">
-      <div className="nav-brand">CivicCase Resident</div>
+      <div className="nav-brand">CivicCase Resident Portal</div>
 
       <div className="nav-links">
         {links.map((link) => {
-          const isNotifications = link.to === "/notifications";
+          const isNotifications = link.to === '/notifications'
 
           return (
             <Link
               key={link.to}
               to={link.to}
-              className={location.pathname === link.to ? "nav-link active" : "nav-link"}
-              style={{ position: "relative" }}
+              className={location.pathname === link.to ? 'nav-link active' : 'nav-link'}
+              style={{ position: 'relative' }}
             >
               {link.label}
 
-              {/* 🔴 Badge */}
-              {isNotifications && unreadCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-6px",
-                    right: "-12px",
-                    background: "#e53935",
-                    color: "#fff",
-                    borderRadius: "50%",
-                    fontSize: "11px",
-                    padding: "2px 6px",
-                    fontWeight: "bold",
-                    minWidth: "18px",
-                    textAlign: "center",
-                  }}
-                >
-                  {unreadCount}
-                </span>
-              )}
+              {isNotifications && unreadCount > 0 ? (
+                <span className="notification-badge">{unreadCount}</span>
+              ) : null}
             </Link>
-          );
+          )
         })}
       </div>
     </nav>
-  );
+  )
 }
 
 export default function AppRoutes() {
@@ -85,5 +68,5 @@ export default function AppRoutes() {
         </Routes>
       </main>
     </div>
-  );
+  )
 }

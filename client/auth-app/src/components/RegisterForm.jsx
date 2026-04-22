@@ -6,7 +6,6 @@ const initialState = {
   username: '',
   email: '',
   password: '',
-  role: 'resident',
 }
 
 export default function RegisterForm() {
@@ -26,10 +25,13 @@ export default function RegisterForm() {
     setErrorMessage('')
 
     try {
-      await register(formData)
+      await register({
+        ...formData,
+        role: 'resident',
+      })
       setFormData(initialState)
     } catch (error) {
-      setErrorMessage(error.message)
+      setErrorMessage(error.message || 'Registration failed.')
     }
   }
 
@@ -44,17 +46,37 @@ export default function RegisterForm() {
 
       <label>
         Full name
-        <input name="fullName" value={formData.fullName} onChange={handleChange} required />
+        <input
+          name="fullName"
+          value={formData.fullName}
+          onChange={handleChange}
+          required
+          minLength="2"
+          maxLength="100"
+        />
       </label>
 
       <label>
         Username
-        <input name="username" value={formData.username} onChange={handleChange} required />
+        <input
+          name="username"
+          value={formData.username}
+          onChange={handleChange}
+          required
+          minLength="3"
+          maxLength="30"
+        />
       </label>
 
       <label>
         Email
-        <input name="email" type="email" value={formData.email} onChange={handleChange} required />
+        <input
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleChange}
+          required
+        />
       </label>
 
       <label>
@@ -69,14 +91,9 @@ export default function RegisterForm() {
         />
       </label>
 
-      <label>
-        Role
-        <select name="role" value={formData.role} onChange={handleChange}>
-          <option value="resident">Resident</option>
-          <option value="staff">Municipal Staff</option>
-          <option value="advocate">Community Advocate</option>
-        </select>
-      </label>
+      <div className="message info compact">
+        New accounts are created as <strong>Resident</strong> accounts.
+      </div>
 
       {errorMessage ? <div className="message error">{errorMessage}</div> : null}
 

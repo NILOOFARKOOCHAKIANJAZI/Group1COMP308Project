@@ -1,18 +1,17 @@
 {
   "name": "analytics-admin-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port=3003 --strictPort",
+    "dev": "vite --port=3004 --strictPort",
     "build": "vite build",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview --port=3003 --strictPort",
+    "preview": "vite preview --port=3004 --strictPort",
     "deploy": "npm run build && npm run preview"
   },
   "dependencies": {
     "@apollo/client": "^4.1.7",
-    "@originjs/vite-plugin-federation": "^1.4.1",
     "bootstrap": "^5.3.8",
     "graphql": "^16.13.2",
     "react": "^19.2.4",
@@ -21,6 +20,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@originjs/vite-plugin-federation": "^1.4.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",

@@ -1,7 +1,16 @@
-// auth-service/graphql/resolvers.js
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import { config } from '../config/config.js';
+import jwt from 'jsonwebtoken'
+import User from '../models/User.js'
+import { config } from '../config/config.js'
+
+const COOKIE_NAME = 'token'
+const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000
+
+const getCookieOptions = () => ({
+  httpOnly: true,
+  secure: config.nodeEnv === 'production',
+  sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+  maxAge: COOKIE_MAX_AGE,
+})
 
 const createToken = (user) => {
   return jwt.sign(
@@ -12,9 +21,9 @@ const createToken = (user) => {
       role: user.role,
     },
     config.jwtSecret,
-    { expiresIn: '1d' }
-  );
-};
+    { expiresIn: '1d' },
+  )
+}
 
 const formatUser = (user) => ({
   id: user._id.toString(),
@@ -24,92 +33,95 @@ const formatUser = (user) => ({
   role: user.role,
   createdAt: user.createdAt.toISOString(),
   updatedAt: user.updatedAt.toISOString(),
-});
+})
+
+const normalizeRoleForPublicRegistration = () => 'resident'
 
 const resolvers = {
   Query: {
     currentUser: async (_, __, context) => {
       try {
-        if (!context.user) {
-          return null;
+        if (!context.user?.userId) {
+          return null
         }
 
-        const user = await User.findById(context.user.userId);
+        const user = await User.findById(context.user.userId)
         if (!user) {
-          return null;
+          return null
         }
 
-        return formatUser(user);
+        return formatUser(user)
       } catch (error) {
-        console.error('currentUser error:', error.message);
-        return null;
+        console.error('currentUser error:', error.message)
+        return null
       }
     },
   },
 
   Mutation: {
-    register: async (_, { fullName, username, email, password, role }) => {
+    register: async (_, { fullName, username, email, password }) => {
       try {
-        const normalizedEmail = email.trim().toLowerCase();
-        const normalizedUsername = username.trim();
+        const normalizedEmail = email.trim().toLowerCase()
+        const normalizedUsername = username.trim()
+        const normalizedFullName = fullName.trim()
+        const safeRole = normalizeRoleForPublicRegistration()
 
-        const existingUserByEmail = await User.findOne({ email: normalizedEmail });
+        const existingUserByEmail = await User.findOne({ email: normalizedEmail })
         if (existingUserByEmail) {
           return {
             success: false,
             message: 'An account with this email already exists.',
             user: null,
             token: null,
-          };
+          }
         }
 
-        const existingUserByUsername = await User.findOne({ username: normalizedUsername });
+        const existingUserByUsername = await User.findOne({ username: normalizedUsername })
         if (existingUserByUsername) {
           return {
             success: false,
             message: 'This username is already taken.',
             user: null,
             token: null,
-          };
+          }
         }
 
         const newUser = new User({
-          fullName: fullName.trim(),
+          fullName: normalizedFullName,
           username: normalizedUsername,
           email: normalizedEmail,
           password,
-          role: role || 'resident',
-        });
+          role: safeRole,
+        })
 
-        await newUser.save();
-
-        const token = createToken(newUser);
+        await newUser.save()
 
         return {
           success: true,
-          message: 'Registration successful.',
+          message: 'Registration successful. Please log in.',
           user: formatUser(newUser),
-          token,
-        };
+          token: null,
+        }
       } catch (error) {
-        console.error('register error:', error.message);
+        console.error('register error:', error.message)
 
         return {
           success: false,
           message: error.message || 'Registration failed.',
           user: null,
           token: null,
-        };
+        }
       }
     },
 
     login: async (_, { usernameOrEmail, password }, { res }) => {
       try {
-        const value = usernameOrEmail.trim().toLowerCase();
+        const rawValue = usernameOrEmail.trim()
+        const normalizedValue = rawValue.toLowerCase()
 
         const user = await User.findOne({
-          $or: [{ email: value }, { username: usernameOrEmail.trim() }],
-        });
+          $or: [{ email: normalizedValue }, { username: rawValue }],
+        })
 
         if (!user) {
           return {
@@ -117,69 +129,63 @@ const resolvers = {
             message: 'User not found.',
             user: null,
             token: null,
-          };
+          }
         }
 
-        const isPasswordValid = await user.comparePassword(password);
+        const isPasswordValid = await user.comparePassword(password)
         if (!isPasswordValid) {
           return {
             success: false,
             message: 'Invalid password.',
             user: null,
             token: null,
-          };
+          }
         }
 
-        const token = createToken(user);
+        const token = createToken(user)
 
-        // Save token in cookie for browser-based auth
-        res.cookie('token', token, {
-          httpOnly: true,
-          secure: false, // change to true in production with HTTPS
-          sameSite: 'lax',
-          maxAge: 24 * 60 * 60 * 1000,
-        });
+        res.cookie(COOKIE_NAME, token, getCookieOptions())
 
         return {
           success: true,
           message: 'Login successful.',
           user: formatUser(user),
-          token,
-        };
+          token: null,
+        }
       } catch (error) {
-        console.error('login error:', error.message);
+        console.error('login error:', error.message)
 
         return {
           success: false,
           message: 'Login failed.',
           user: null,
           token: null,
-        };
+        }
       }
     },
 
     logout: async (_, __, { res }) => {
       try {
-        res.clearCookie('token', {
+        res.clearCookie(COOKIE_NAME, {
           httpOnly: true,
-          secure: false,
-          sameSite: 'lax',
-        });
+          secure: config.nodeEnv === 'production',
+          sameSite: config.nodeEnv === 'production' ? 'none' : 'lax',
+        })
 
         return {
           success: true,
           message: 'Logout successful.',
-        };
+        }
       } catch (error) {
-        console.error('logout error:', error.message);
+        console.error('logout error:', error.message)
 
         return {
           success: false,
           message: 'Logout failed.',
-        };
+        }
       }
     },
   },
-};
+}
 
-export default resolvers;
+export default resolvers

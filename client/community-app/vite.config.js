@@ -11,11 +11,21 @@ export default defineConfig({
       exposes: {
         './CommunityApp': './src/App.jsx',
       },
-      shared: ['react', 'react-dom'],
+      shared: [
+        'react',
+        'react-dom',
+        '@apollo/client',
+        'graphql'
+      ],
     }),
   ],
   server: {
-    port: 3004,
+    port: 3003,
+    strictPort: true,
+  },
+  preview: {
+    port: 3003,
+    strictPort: true,
   },
   build: {
     modulePreload: false,

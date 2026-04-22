@@ -1,37 +1,58 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { CURRENT_USER_QUERY } from '../graphql/queries'
 import { LOGIN_MUTATION, LOGOUT_MUTATION, REGISTER_MUTATION } from '../graphql/mutations'
 
 const AuthContext = createContext(null)
 
+const AUTH_CHANGED_EVENT = 'civiccase-auth-changed'
+
+function notifyShell(type) {
+  window.dispatchEvent(
+    new CustomEvent(AUTH_CHANGED_EVENT, {
+      detail: { type },
+    }),
+  )
+}
+
 export function AuthProvider({ children }) {
   const client = useApolloClient()
-  const [authToken, setAuthToken] = useState(() => localStorage.getItem('token') || '')
   const [authMessage, setAuthMessage] = useState('')
 
-  const { data, loading, error, refetch } = useQuery(CURRENT_USER_QUERY, {
-    skip: !authToken,
+  const {
+    data,
+    loading,
+    error,
+    refetch: refetchCurrentUserQuery,
+  } = useQuery(CURRENT_USER_QUERY, {
     fetchPolicy: 'network-only',
+    errorPolicy: 'all',
   })
 
   const [registerMutation, { loading: registerLoading }] = useMutation(REGISTER_MUTATION)
   const [loginMutation, { loading: loginLoading }] = useMutation(LOGIN_MUTATION)
   const [logoutMutation, { loading: logoutLoading }] = useMutation(LOGOUT_MUTATION)
 
-  useEffect(() => {
-    if (!authToken) {
-      localStorage.removeItem('token')
-      client.clearStore().catch(() => {})
-      return
+  const refetchCurrentUser = async () => {
+    try {
+      const result = await refetchCurrentUserQuery()
+      return result?.data?.currentUser || null
+    } catch {
+      return null
     }
-
-    localStorage.setItem('token', authToken)
-  }, [authToken, client])
+  }
 
   const register = async (formValues) => {
+    const payloadVariables = {
+      fullName: formValues.fullName.trim(),
+      username: formValues.username.trim(),
+      email: formValues.email.trim().toLowerCase(),
+      password: formValues.password,
+      role: 'resident',
+    }
+
     const { data: mutationData } = await registerMutation({
-      variables: formValues,
+      variables: payloadVariables,
     })
 
     const payload = mutationData?.register
@@ -40,18 +61,20 @@ export function AuthProvider({ children }) {
       throw new Error(payload?.message || 'Registration failed.')
     }
 
-    if (payload.token) {
-      setAuthToken(payload.token)
-    }
+    setAuthMessage(payload.message || 'Registration successful. Please log in.')
+    notifyShell('register')
 
-    setAuthMessage(payload.message || 'Registration successful.')
-    await refetch()
     return payload
   }
 
   const login = async (formValues) => {
+    const payloadVariables = {
+      usernameOrEmail: formValues.usernameOrEmail.trim(),
+      password: formValues.password,
+    }
+
     const { data: mutationData } = await loginMutation({
-      variables: formValues,
+      variables: payloadVariables,
     })
 
     const payload = mutationData?.login
@@ -60,12 +83,12 @@ export function AuthProvider({ children }) {
       throw new Error(payload?.message || 'Login failed.')
     }
 
-    if (payload.token) {
-      setAuthToken(payload.token)
-    }
+    await client.clearStore().catch(() => {})
+    await refetchCurrentUser()
 
     setAuthMessage(payload.message || 'Login successful.')
-    await refetch()
+    notifyShell('login')
+
     return payload
   }
 
@@ -73,20 +96,22 @@ export function AuthProvider({ children }) {
     try {
       await logoutMutation()
     } catch {
-      // Even if logout mutation fails, clear local state for safety.
+      // Even if the server logout fails, continue clearing local Apollo state.
     }
 
-    setAuthToken('')
-    setAuthMessage('You have been logged out.')
-    localStorage.removeItem('token')
     await client.clearStore().catch(() => {})
+    await refetchCurrentUser()
+
+    setAuthMessage('You have been logged out.')
+    notifyShell('logout')
   }
+
+  const clearMessage = () => setAuthMessage('')
 
   const value = useMemo(
     () => ({
       user: data?.currentUser || null,
-      isAuthenticated: Boolean(data?.currentUser && authToken),
-      authToken,
+      isAuthenticated: Boolean(data?.currentUser),
       authMessage,
       authError: error?.message || '',
       loading,
@@ -94,19 +119,17 @@ export function AuthProvider({ children }) {
       register,
       login,
       logout,
-      refetchCurrentUser: refetch,
-      clearMessage: () => setAuthMessage(''),
+      refetchCurrentUser,
+      clearMessage,
     }),
     [
-      authMessage,
-      authToken,
       data?.currentUser,
+      authMessage,
       error?.message,
       loading,
       registerLoading,
       loginLoading,
       logoutLoading,
-      refetch,
     ],
   )
 
