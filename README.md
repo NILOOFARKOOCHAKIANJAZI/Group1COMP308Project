@@ -604,3 +604,5 @@ An advocate can:
 - access trend insights
 - view AI logs
 
+Note:
+I did not delete my .env file because it contains my Google Maps API key, which is required for this assignment. You can use it for testing purposes only. I will delete or secure the API key after the assignment is completed.
