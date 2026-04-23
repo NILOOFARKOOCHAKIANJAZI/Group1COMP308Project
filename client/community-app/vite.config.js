@@ -6,17 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     federation({
-      name: 'community-mf',
+      name: 'communityApp',
       filename: 'remoteEntry.js',
       exposes: {
         './CommunityApp': './src/App.jsx',
       },
-      shared: [
-        'react',
-        'react-dom',
-        '@apollo/client',
-        'graphql'
-      ],
+      shared: ['react', 'react-dom', '@apollo/client', 'graphql'],
     }),
   ],
   server: {

@@ -1,14 +1,24 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@apollo/client/react'
 import { GET_NOTIFICATIONS } from '../../graphql/queries/notificationQueries'
 import { MARK_NOTIFICATION_AS_READ } from '../../graphql/mutations/notificationMutations'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import ErrorMessage from '../../components/common/ErrorMessage'
 import EmptyState from '../../components/common/EmptyState'
-import NotificationList from '../../components/resident/NotificationList'
+import NotificationCard from '../../components/resident/NotificationCard'
+
+const TYPE_ORDER = ['status_update', 'urgent_alert', 'assignment', 'general']
+
+function formatLabel(value) {
+  return String(value || '')
+    .replaceAll('_', ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
 
 export default function NotificationsPage() {
+  const [activeFilter, setActiveFilter] = useState('all')
   const [loadingId, setLoadingId] = useState(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
 
   const { data, loading, error, refetch } = useQuery(GET_NOTIFICATIONS, {
     fetchPolicy: 'network-only',
@@ -16,19 +26,58 @@ export default function NotificationsPage() {
 
   const [markNotificationAsRead] = useMutation(MARK_NOTIFICATION_AS_READ)
 
+  const notifications = useMemo(() => data?.notifications || [], [data])
+
+  const stats = useMemo(
+    () => ({
+      total: notifications.length,
+      unread: notifications.filter((n) => !n.isRead).length,
+      read: notifications.filter((n) => n.isRead).length,
+    }),
+    [notifications],
+  )
+
+  const typeBreakdown = useMemo(() => {
+    return TYPE_ORDER.map((type) => ({
+      type,
+      count: notifications.filter((n) => n.type === type).length,
+    })).filter((item) => item.count > 0)
+  }, [notifications])
+
+  const filteredNotifications = useMemo(() => {
+    if (activeFilter === 'all') return notifications
+    if (activeFilter === 'unread') return notifications.filter((n) => !n.isRead)
+    return notifications.filter((n) => n.type === activeFilter)
+  }, [notifications, activeFilter])
+
   const handleMarkRead = async (notificationId) => {
     try {
       setLoadingId(notificationId)
-
-      await markNotificationAsRead({
-        variables: { notificationId },
-      })
-
+      await markNotificationAsRead({ variables: { notificationId } })
       await refetch()
     } catch (err) {
       console.error('Failed to mark notification as read:', err.message)
     } finally {
       setLoadingId(null)
+    }
+  }
+
+  const handleMarkAllRead = async () => {
+    const unreadIds = notifications.filter((n) => !n.isRead).map((n) => n.id)
+    if (unreadIds.length === 0) return
+
+    try {
+      setBulkLoading(true)
+      await Promise.all(
+        unreadIds.map((id) =>
+          markNotificationAsRead({ variables: { notificationId: id } }),
+        ),
+      )
+      await refetch()
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err.message)
+    } finally {
+      setBulkLoading(false)
     }
   }
 
@@ -40,8 +89,6 @@ export default function NotificationsPage() {
     return <ErrorMessage message={error.message} />
   }
 
-  const notifications = data?.notifications || []
-
   if (!notifications.length) {
     return (
       <EmptyState
@@ -51,18 +98,151 @@ export default function NotificationsPage() {
     )
   }
 
+  const maxTypeCount = typeBreakdown.length > 0
+    ? Math.max(...typeBreakdown.map((t) => t.count))
+    : 0
+
   return (
-    <div className="page-wrapper">
-      <div className="page-header">
-        <h1>Notifications & Alerts</h1>
-        <p>Review issue updates, assignments, status changes, and urgent municipal alerts.</p>
+    <div className="staff-main staff-detail-page">
+      <div className="staff-page-header">
+        <div className="staff-page-header__title-group">
+          <h1 className="staff-page-header__title">Notifications & alerts</h1>
+          <span className="staff-page-header__subtitle">
+            Review issue updates, assignments, status changes, and urgent municipal alerts.
+          </span>
+        </div>
       </div>
 
-      <NotificationList
-        notifications={notifications}
-        onMarkRead={handleMarkRead}
-        loadingId={loadingId}
-      />
+      <div className="staff-stats">
+        <div className="staff-stat staff-stat--urgent">
+          <span className="staff-stat__label">Unread</span>
+          <span className="staff-stat__value">{stats.unread}</span>
+        </div>
+        <div className="staff-stat staff-stat--resolved">
+          <span className="staff-stat__label">Read</span>
+          <span className="staff-stat__value">{stats.read}</span>
+        </div>
+        <div className="staff-stat">
+          <span className="staff-stat__label">Total</span>
+          <span className="staff-stat__value">{stats.total}</span>
+        </div>
+      </div>
+
+      <div className="staff-filter-chips" role="tablist" aria-label="Filter notifications">
+        <div className="staff-filter-chips__group">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeFilter === 'all'}
+            className={`staff-filter-chip ${activeFilter === 'all' ? 'staff-filter-chip--active' : ''}`}
+            onClick={() => setActiveFilter('all')}
+          >
+            All <span className="staff-filter-chip__count">{stats.total}</span>
+          </button>
+          {stats.unread > 0 && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeFilter === 'unread'}
+              className={`staff-filter-chip ${activeFilter === 'unread' ? 'staff-filter-chip--active' : ''}`}
+              onClick={() => setActiveFilter('unread')}
+            >
+              Unread <span className="staff-filter-chip__count">{stats.unread}</span>
+            </button>
+          )}
+          {typeBreakdown.map(({ type, count }) => {
+            const isActive = activeFilter === type
+            return (
+              <button
+                key={type}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`staff-filter-chip ${isActive ? 'staff-filter-chip--active' : ''}`}
+                onClick={() => setActiveFilter(type)}
+              >
+                {formatLabel(type)} <span className="staff-filter-chip__count">{count}</span>
+              </button>
+            )
+          })}
+        </div>
+        {stats.unread > 0 && (
+          <button
+            type="button"
+            className="staff-btn staff-btn--ghost"
+            onClick={handleMarkAllRead}
+            disabled={bulkLoading}
+          >
+            {bulkLoading ? 'Marking...' : 'Mark all as read'}
+          </button>
+        )}
+      </div>
+
+      <div className="notif-layout">
+        <div className="notif-list">
+          {filteredNotifications.length === 0 ? (
+            <div className="staff-empty">
+              <span className="staff-empty__title">No notifications match this filter</span>
+              <div style={{ marginTop: 14 }}>
+                <button
+                  type="button"
+                  className="staff-btn staff-btn--ghost"
+                  onClick={() => setActiveFilter('all')}
+                >
+                  Show all
+                </button>
+              </div>
+            </div>
+          ) : (
+            filteredNotifications.map((notification) => (
+              <NotificationCard
+                key={notification.id}
+                notification={notification}
+                onMarkRead={handleMarkRead}
+                loadingId={loadingId}
+              />
+            ))
+          )}
+        </div>
+
+        <aside className="notif-aside">
+          <section className="staff-card">
+            <div className="staff-card__head">
+              <div className="staff-card__title">By type</div>
+            </div>
+            <div className="staff-card__body">
+              {typeBreakdown.length === 0 ? (
+                <div className="notif-breakdown__empty">No notifications yet.</div>
+              ) : (
+                <div className="notif-breakdown">
+                  {typeBreakdown.map(({ type, count }) => {
+                    const pct = maxTypeCount > 0 ? (count / maxTypeCount) * 100 : 0
+                    return (
+                      <div
+                        key={type}
+                        className={`notif-breakdown-row notif-breakdown-row--${type}`}
+                      >
+                        <div className="notif-breakdown-row__head">
+                          <span className="notif-breakdown-row__label">
+                            {formatLabel(type)}
+                          </span>
+                          <span className="notif-breakdown-row__count">{count}</span>
+                        </div>
+                        <div className="notif-breakdown-bar">
+                          <div
+                            className="notif-breakdown-bar__fill"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   )
 }

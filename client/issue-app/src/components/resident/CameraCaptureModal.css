@@ -1,0 +1,242 @@
+.camera-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(15, 23, 42, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: cameraOverlayIn 200ms ease-out;
+}
+
+@keyframes cameraOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.camera-modal__panel {
+  background: #0f172a;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  animation: cameraPanelIn 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cameraPanelIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.camera-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #0b1220;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.camera-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+}
+
+.camera-modal__close {
+  background: transparent;
+  border: none;
+  color: rgba(248, 250, 252, 0.7);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.camera-modal__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.camera-modal__stage {
+  position: relative;
+  background: #000;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.camera-modal__video,
+.camera-modal__preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-modal__canvas {
+  display: none;
+}
+
+.camera-modal__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(248, 250, 252, 0.85);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.camera-modal__message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding: 32px 24px;
+  color: #f8fafc;
+}
+
+.camera-modal__message-icon {
+  color: #fbbf24;
+  display: grid;
+  place-items: center;
+}
+
+.camera-modal__message-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(248, 250, 252, 0.9);
+  max-width: 420px;
+}
+
+.camera-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 20px;
+  background: #0b1220;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.camera-modal__btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 140ms ease;
+  white-space: nowrap;
+}
+
+.camera-modal__btn--ghost {
+  background: transparent;
+  color: rgba(248, 250, 252, 0.85);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.camera-modal__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #f8fafc;
+}
+
+.camera-modal__btn--primary {
+  background: #c84b1e;
+  color: #ffffff;
+}
+
+.camera-modal__btn--primary:hover:not(:disabled) {
+  background: #a23c16;
+}
+
+.camera-modal__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.camera-modal__shutter {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition: transform 140ms ease;
+}
+
+.camera-modal__shutter:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+
+.camera-modal__shutter:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.camera-modal__shutter:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.camera-modal__shutter-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.3);
+}
+
+.camera-modal__shutter-core {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: background 140ms ease;
+}
+
+.camera-modal__shutter:hover:not(:disabled) .camera-modal__shutter-core {
+  background: #f1f5f9;
+}
+
+@media (max-width: 560px) {
+  .camera-modal {
+    padding: 0;
+  }
+
+  .camera-modal__panel {
+    border-radius: 0;
+    max-width: none;
+    height: 100vh;
+    max-height: 100vh;
+  }
+
+  .camera-modal__stage {
+    aspect-ratio: auto;
+    flex: 1;
+  }
+}

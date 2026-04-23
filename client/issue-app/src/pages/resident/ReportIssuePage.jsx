@@ -20,8 +20,11 @@ export default function ReportIssuePage() {
       setClassificationError("");
       setCreatedIssue(null);
 
-      let resolvedCategory = input.category || "other";
-      let resolvedPriority = input.priority || "medium";
+      const userPickedCategory = Boolean(input.category);
+      const userPickedPriority = Boolean(input.priority);
+
+      let aiCategory = "";
+      let aiPriority = "";
       let aiSummary = "";
 
       try {
@@ -37,26 +40,34 @@ export default function ReportIssuePage() {
         const classification = classifyData?.classifyIssue;
 
         if (classification?.success) {
-          resolvedCategory = classification.category || resolvedCategory;
-          resolvedPriority = classification.priority || resolvedPriority;
+          aiCategory = classification.category || "";
+          aiPriority = classification.priority || "";
           aiSummary = classification.summary || "";
         } else {
           setClassificationError(
-            classification?.message || "AI categorization was unavailable. The issue was still submitted."
+            classification?.message || "AI categorization was unavailable. The issue was still submitted with your selections."
           );
         }
       } catch (classifyError) {
         console.error("Issue classification failed:", classifyError.message);
         setClassificationError(
-          "AI categorization was unavailable. The issue was still submitted with your selected values."
+          "AI categorization was unavailable. The issue was still submitted with your selections."
         );
       }
 
+      const finalCategory = userPickedCategory
+        ? input.category
+        : (aiCategory || "other");
+
+      const finalPriority = userPickedPriority
+        ? input.priority
+        : (aiPriority || "medium");
+
       const finalInput = {
         ...input,
-        category: resolvedCategory,
-        priority: resolvedPriority,
-        aiCategory: resolvedCategory,
+        category: finalCategory,
+        priority: finalPriority,
+        aiCategory,
         aiSummary,
       };
 
@@ -95,11 +106,18 @@ export default function ReportIssuePage() {
 
       {createdIssue && (
         <div className="message-card success-card">
-          <strong>AI Category:</strong> {formatLabel(createdIssue.aiCategory || createdIssue.category)}
+          <strong>Category:</strong> {formatLabel(createdIssue.category)}
+          {createdIssue.aiCategory && createdIssue.aiCategory !== createdIssue.category && (
+            <span> (AI suggested {formatLabel(createdIssue.aiCategory)})</span>
+          )}
           <br />
           <strong>Priority:</strong> {formatLabel(createdIssue.priority)}
-          <br />
-          <strong>AI Summary:</strong> {createdIssue.aiSummary || "No AI summary available."}
+          {createdIssue.aiSummary && (
+            <>
+              <br />
+              <strong>AI Summary:</strong> {createdIssue.aiSummary}
+            </>
+          )}
         </div>
       )}
     </div>

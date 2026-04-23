@@ -11,16 +11,47 @@ import AccessDenied from './components/AccessDenied'
 import './index.css'
 
 function formatRole(role) {
-  const roleMap = {
+  const map = {
     resident: 'Resident',
     staff: 'Municipal Staff',
     advocate: 'Community Advocate',
   }
-
-  return roleMap[role] || role || 'Unknown'
+  return map[role] || role || 'Unknown'
 }
 
-function AnalyticsAdminShell() {
+function AnalyticsView() {
+  return (
+    <>
+      <header className="aa-page-header">
+        <div className="aa-page-header__title-group">
+          <span className="aa-eyebrow">Operations</span>
+          <h1 className="aa-page-header__title">Analytics and insights</h1>
+          <p className="aa-page-header__subtitle">
+            Track issue volume, category mix, and neighborhood hotspots. Generate AI trend insights on demand and audit recent AI activity.
+          </p>
+        </div>
+      </header>
+
+      <StatsCards />
+
+      <section className="aa-grid aa-grid--two">
+        <CategoryBreakdown />
+        <NeighborhoodHotspots />
+      </section>
+
+      <section className="aa-grid aa-grid--lopsided">
+        <TrendInsightsPanel />
+        <RecentAiLogs />
+      </section>
+    </>
+  )
+}
+
+function AiAssistantView({ currentUser }) {
+  return <AiChatBox currentUser={currentUser} />
+}
+
+function AnalyticsAdminShell({ view }) {
   const { data, loading, error } = useQuery(CURRENT_USER_QUERY, {
     fetchPolicy: 'network-only',
     errorPolicy: 'all',
@@ -31,33 +62,25 @@ function AnalyticsAdminShell() {
 
   if (loading) {
     return (
-      <div className="analytics-admin-app">
-        <section className="analytics-hero">
-          <p className="eyebrow">CivicCase</p>
-          <h1>Analytics &amp; Administration</h1>
-          <p className="hero-text">Checking authenticated session and role access...</p>
-        </section>
+      <div className="aa-shell">
+        <div className="aa-loading">Checking authenticated session and role access...</div>
       </div>
     )
   }
 
   if (error && !currentUser) {
     return (
-      <div className="analytics-admin-app">
-        <section className="analytics-hero">
-          <p className="eyebrow">CivicCase</p>
-          <h1>Analytics &amp; Administration</h1>
-          <div className="panel-error">
-            Unable to load the authenticated user. {error.message}
-          </div>
-        </section>
+      <div className="aa-shell">
+        <div className="aa-message aa-message--error">
+          Unable to load the authenticated user. {error.message}
+        </div>
       </div>
     )
   }
 
   if (!currentUser) {
     return (
-      <div className="analytics-admin-app">
+      <div className="aa-shell">
         <AccessDenied
           title="Authentication required"
           description="Please sign in through the Auth module to access analytics, administration tools, and the AI assistant."
@@ -68,9 +91,9 @@ function AnalyticsAdminShell() {
 
   if (!isPrivileged) {
     return (
-      <div className="analytics-admin-app">
+      <div className="aa-shell">
         <AccessDenied
-          title="Restricted analytics access"
+          title="Restricted access"
           description={`This module is intended for Municipal Staff and Community Advocate users. You are currently signed in as ${formatRole(currentUser.role)}.`}
         />
       </div>
@@ -78,69 +101,20 @@ function AnalyticsAdminShell() {
   }
 
   return (
-    <div className="analytics-admin-app">
-      <section className="analytics-hero">
-        <div>
-          <p className="eyebrow">CivicCase</p>
-          <h1>Analytics &amp; Administration</h1>
-          <p className="hero-text">
-            Staff-facing analytics workspace for municipal issue monitoring, AI-generated insight
-            review, hotspot analysis, and agentic chatbot support.
-          </p>
-        </div>
-
-        <div className="hero-meta-grid">
-          <div className="hero-meta-card">
-            <span className="hero-meta-label">Current user</span>
-            <strong>{currentUser.fullName}</strong>
-            <small>{currentUser.email}</small>
-          </div>
-
-          <div className="hero-meta-card">
-            <span className="hero-meta-label">Role</span>
-            <strong>{formatRole(currentUser.role)}</strong>
-            <small>Privileged analytics access granted</small>
-          </div>
-
-          <div className="hero-meta-card">
-            <span className="hero-meta-label">Gateway</span>
-            <strong>{import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4000/graphql'}</strong>
-            <small>Cookie-authenticated GraphQL gateway</small>
-          </div>
-        </div>
-
-        <div className="hero-pill-row">
-          <span className="hero-pill">Dashboard Analytics</span>
-          <span className="hero-pill">Trend Insights</span>
-          <span className="hero-pill">AI Logs</span>
-          <span className="hero-pill">LangGraph + Gemini</span>
-          <span className="hero-pill">Role Protected</span>
-        </div>
-      </section>
-
-      <StatsCards />
-
-      <section className="dashboard-grid">
-        <CategoryBreakdown />
-        <NeighborhoodHotspots />
-      </section>
-
-      <section className="dashboard-grid dashboard-grid-uneven">
-        <TrendInsightsPanel />
-        <RecentAiLogs />
-      </section>
-
-      <section className="chat-section">
-        <AiChatBox />
-      </section>
+    <div className="aa-shell">
+      {view === 'ai' ? (
+        <AiAssistantView currentUser={currentUser} />
+      ) : (
+        <AnalyticsView />
+      )}
     </div>
   )
 }
 
-export default function App() {
+export default function App({ view = 'analytics' }) {
   return (
     <ApolloProvider client={client}>
-      <AnalyticsAdminShell />
+      <AnalyticsAdminShell view={view} />
     </ApolloProvider>
   )
 }

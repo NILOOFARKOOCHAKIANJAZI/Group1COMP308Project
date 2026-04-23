@@ -12,6 +12,68 @@ export const CURRENT_USER_QUERY = gql`
   }
 `
 
+export const MY_ISSUES_QUERY = gql`
+  query MyIssuesForCommunity {
+    myIssues {
+      id
+      title
+      description
+      photoUrl
+      status
+      priority
+      category
+      urgentAlert
+      reportedByUsername
+      createdAt
+      location {
+        address
+        neighborhood
+      }
+    }
+  }
+`
+
+export const ALL_ISSUES_QUERY = gql`
+  query AllIssuesForCommunity {
+    allIssues {
+      id
+      title
+      description
+      photoUrl
+      status
+      priority
+      category
+      urgentAlert
+      reportedByUsername
+      createdAt
+      location {
+        address
+        neighborhood
+      }
+    }
+  }
+`
+
+export const ISSUE_CONTEXT_QUERY = gql`
+  query IssueContext($id: ID!) {
+    issueById(id: $id) {
+      id
+      title
+      description
+      photoUrl
+      status
+      priority
+      category
+      reportedByUsername
+      createdAt
+      location {
+        address
+        neighborhood
+      }
+    }
+  }
+`
+
 export const COMMUNITY_SUMMARY_QUERY = gql`
   query CommunitySummary($issueId: String!) {
     communitySummary(issueId: $issueId) {

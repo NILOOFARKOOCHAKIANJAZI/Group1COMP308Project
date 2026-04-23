@@ -16,7 +16,8 @@
     "graphql": "^16.13.2",
     "react": "^19.2.4",
     "react-bootstrap": "^2.10.10",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "recharts": "^2.13.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

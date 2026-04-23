@@ -10,31 +10,39 @@ export default function TrendInsightsPanel() {
   const payload = data?.trendInsights
 
   return (
-    <section className="panel-card panel-card-tall">
-      <div className="panel-header">
-        <div>
-          <p className="eyebrow">AI insights</p>
-          <h2>Trend Insights</h2>
+    <section className="aa-card aa-card--tall">
+      <div className="aa-card__head">
+        <div className="aa-card__head-text">
+          <span className="aa-card__eyebrow">AI insights</span>
+          <span className="aa-card__title">Trend insights</span>
         </div>
 
-        <button type="button" className="panel-action-btn" onClick={() => refetch()} disabled={loading}>
-          {loading ? 'Refreshing...' : 'Refresh'}
+        <button
+          type="button"
+          className="aa-btn aa-btn--ghost"
+          onClick={() => refetch()}
+          disabled={loading}
+        >
+          {loading ? <span className="aa-btn__spinner" /> : null}
+          {loading ? 'Refreshing' : 'Refresh'}
         </button>
       </div>
 
-      {loading ? <div className="panel-loading">Generating municipal trend insights...</div> : null}
-
-      {error ? <div className="panel-error">{error.message}</div> : null}
-
-      {!loading && !error && payload && !payload.success ? (
-        <div className="panel-error">{payload.message || 'Unable to generate trend insights.'}</div>
-      ) : null}
-
-      {!loading && !error && payload?.success ? (
-        <div className="insight-text-block">
-          <p>{payload.text}</p>
-        </div>
-      ) : null}
+      <div className="aa-card__body">
+        {loading ? (
+          <div className="aa-state">Generating municipal trend insights...</div>
+        ) : error ? (
+          <div className="aa-state aa-state--error">{error.message}</div>
+        ) : payload && !payload.success ? (
+          <div className="aa-state aa-state--error">
+            {payload.message || 'Unable to generate trend insights.'}
+          </div>
+        ) : payload?.success ? (
+          <p className="aa-trend-text">{payload.text}</p>
+        ) : (
+          <div className="aa-state">No insights available.</div>
+        )}
+      </div>
     </section>
   )
 }

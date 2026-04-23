@@ -3,19 +3,46 @@ import { ApolloProvider, useApolloClient, useMutation, useQuery } from '@apollo/
 import client from './apollo/client'
 import { CURRENT_USER_QUERY } from './graphql/queries'
 import { LOGOUT_MUTATION } from './graphql/mutations'
+import CivicHelperBot from './components/CivicHelperBot'
 
 const AuthRemote = lazy(() => import('authApp/AuthApp'))
 const IssueRemote = lazy(() => import('issueApp/IssueApp'))
 const CommunityRemote = lazy(() => import('communityApp/CommunityApp'))
 const AnalyticsRemote = lazy(() => import('analyticsAdminApp/AnalyticsAdminApp'))
 
-const VIEWS = ['home', 'auth', 'issue', 'community', 'analytics']
+const VALID_VIEWS = ['auth', 'issue', 'community', 'analytics', 'ai']
 const AUTH_CHANGED_EVENT = 'civiccase-auth-changed'
+const ISSUE_SELECTED_EVENT = 'civiccase-issue-selected'
 const SELECTED_ISSUE_STORAGE_KEY = 'shell_selected_issue_id'
+
+const NAV_ITEMS_BY_ROLE = {
+  resident: [
+    { hash: 'issue', label: 'Issue' },
+    { hash: 'community', label: 'Community' },
+  ],
+  staff: [
+    { hash: 'issue', label: 'Issue Management' },
+    { hash: 'community', label: 'Community' },
+    { hash: 'analytics', label: 'Analytics' },
+    { hash: 'ai', label: 'AI Assistant' },
+  ],
+  advocate: [
+    { hash: 'issue', label: 'Issues' },
+    { hash: 'community', label: 'Community' },
+    { hash: 'analytics', label: 'Insights' },
+    { hash: 'ai', label: 'AI Assistant' },
+  ],
+}
+
+const DEFAULT_VIEW_BY_ROLE = {
+  resident: 'issue',
+  staff: 'issue',
+  advocate: 'community',
+}
 
 function getViewFromHash() {
   const raw = window.location.hash.replace('#', '').trim().toLowerCase()
-  return VIEWS.includes(raw) ? raw : 'home'
+  return VALID_VIEWS.includes(raw) ? raw : null
 }
 
 function formatRole(role) {
@@ -28,6 +55,20 @@ function formatRole(role) {
   }
 
   return roleMap[role] || role
+}
+
+function getNavForRole(role) {
+  return NAV_ITEMS_BY_ROLE[role] || NAV_ITEMS_BY_ROLE.resident
+}
+
+function getDefaultViewForRole(role) {
+  return DEFAULT_VIEW_BY_ROLE[role] || 'issue'
+}
+
+function isViewAllowedForRole(view, role) {
+  if (view === 'auth') return true
+  const allowed = getNavForRole(role).map((item) => item.hash)
+  return allowed.includes(view)
 }
 
 function AppShell() {
@@ -48,6 +89,8 @@ function AppShell() {
 
   const currentUser = data?.currentUser || null
   const isAuthenticated = Boolean(currentUser)
+  const userRole = currentUser?.role || 'resident'
+  const navItems = useMemo(() => getNavForRole(userRole), [userRole])
 
   useEffect(() => {
     const onHashChange = () => setActiveView(getViewFromHash())
@@ -60,16 +103,24 @@ function AppShell() {
   }, [selectedIssueId])
 
   useEffect(() => {
-    if (!window.location.hash) {
-      window.location.hash = '#home'
-    }
-  }, [])
+    if (loading) return
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated && activeView !== 'auth') {
-      window.location.hash = '#auth'
+    if (!isAuthenticated) {
+      if (activeView !== 'auth') {
+        window.location.hash = '#auth'
+      }
+      return
     }
-  }, [isAuthenticated, activeView, loading])
+
+    const needsDefault =
+      activeView === null ||
+      activeView === 'auth' ||
+      !isViewAllowedForRole(activeView, userRole)
+
+    if (needsDefault) {
+      window.location.hash = `#${getDefaultViewForRole(userRole)}`
+    }
+  }, [loading, isAuthenticated, activeView, userRole])
 
   useEffect(() => {
     const handleAuthChanged = async () => {
@@ -84,7 +135,23 @@ function AppShell() {
     }
   }, [apolloClient, refetch])
 
-  const displayView = !isAuthenticated ? 'auth' : activeView
+  useEffect(() => {
+    const handleIssueSelected = (event) => {
+      const nextId = event?.detail?.issueId
+      if (typeof nextId === 'string' && nextId.length > 0) {
+        setSelectedIssueId(nextId)
+      }
+    }
+
+    window.addEventListener(ISSUE_SELECTED_EVENT, handleIssueSelected)
+    return () => window.removeEventListener(ISSUE_SELECTED_EVENT, handleIssueSelected)
+  }, [])
+
+  const displayView = !isAuthenticated
+    ? 'auth'
+    : activeView && isViewAllowedForRole(activeView, userRole)
+      ? activeView
+      : getDefaultViewForRole(userRole)
 
   const userInitials = useMemo(() => {
     if (!currentUser?.fullName && !currentUser?.username) return '?'
@@ -107,132 +174,80 @@ function AppShell() {
     }
 
     await apolloClient.clearStore().catch(() => {})
-    await refetch().catch(() => {})
     window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: { type: 'logout' } }))
-    window.location.hash = '#auth'
+    window.location.replace(`${window.location.pathname}#auth`)
   }
+
+  const showHelperBot = isAuthenticated && currentUser?.role === 'resident'
 
   return (
     <div className="shell-root">
-      <header className="shell-header">
-        <div className="brand-block">
-          <div className="brand-mark" />
-          <div>
-            <div className="brand-eyebrow">CivicCase</div>
-            <h1 className="brand-title">Micro Frontend Shell</h1>
+      {isAuthenticated ? (
+        <header className="shell-header">
+          <div className="brand-block">
+            <img src="/Logo.png" alt="Community Issue Tracker" className="brand-mark" />
+            <div>
+              <div className="brand-eyebrow">CivicCase</div>
+              <h1 className="brand-title">Community Issue Tracker</h1>
+            </div>
           </div>
-        </div>
 
-        <nav className="nav-bar">
-          <NavButton
-            label="Home"
-            hash="home"
-            active={displayView === 'home'}
-            disabled={!isAuthenticated}
-          />
-          <NavButton label="Auth" hash="auth" active={displayView === 'auth'} />
-          <NavButton
-            label="Issue"
-            hash="issue"
-            active={displayView === 'issue'}
-            disabled={!isAuthenticated}
-          />
-          <NavButton
-            label="Community"
-            hash="community"
-            active={displayView === 'community'}
-            disabled={!isAuthenticated}
-          />
-          <NavButton
-            label="Analytics"
-            hash="analytics"
-            active={displayView === 'analytics'}
-            disabled={!isAuthenticated}
-          />
-        </nav>
+          <nav className="nav-bar">
+            {navItems.map((item) => (
+              <NavButton
+                key={item.hash}
+                label={item.label}
+                hash={item.hash}
+                active={displayView === item.hash}
+              />
+            ))}
+          </nav>
 
-        <div className="header-right">
-          {currentUser ? (
-            <>
-              <div className="user-chip">
-                <div className="avatar">{userInitials}</div>
-                <div className="user-meta">
-                  <strong>{currentUser.fullName}</strong>
-                  <span>{formatRole(currentUser.role)}</span>
-                </div>
+          <div className="header-right">
+            <div className="user-chip">
+              <div className="avatar">{userInitials}</div>
+              <div className="user-meta">
+                <strong>{currentUser.fullName}</strong>
+                <span>{formatRole(currentUser.role)}</span>
               </div>
+            </div>
 
-              <button className="ghost-btn" onClick={handleLogout} disabled={logoutLoading}>
-                {logoutLoading ? 'Logging out...' : 'Logout'}
-              </button>
-            </>
-          ) : (
-            <button className="ghost-btn" onClick={() => (window.location.hash = '#auth')}>
-              Sign in
+            <button className="ghost-btn" onClick={handleLogout} disabled={logoutLoading}>
+              {logoutLoading ? 'Logging out...' : 'Logout'}
             </button>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      ) : null}
 
       <main className="shell-main">
         {error ? <div className="banner error">Gateway/auth check error: {error.message}</div> : null}
 
-        {!currentUser && !loading ? (
-          <div className="banner info">
-            Please sign in through the Auth module to unlock the other micro frontends.
-          </div>
-        ) : null}
-
-        {currentUser ? (
-          <section className="context-panel">
-            <div className="context-card">
-              <span className="context-label">Current user</span>
-              <strong>{currentUser.fullName}</strong>
-              <small>{currentUser.email}</small>
-            </div>
-
-            <div className="context-card context-card--wide">
-              <span className="context-label">Selected issue ID for Community module</span>
-              <div className="context-row">
-                <input
-                  className="shell-input"
-                  value={selectedIssueId}
-                  onChange={(e) => setSelectedIssueId(e.target.value)}
-                  placeholder="Paste an issue ID here"
-                />
-                <button className="primary-btn" onClick={() => (window.location.hash = '#community')}>
-                  Open Community
-                </button>
-              </div>
-              <small>Use this to send a specific issue ID into the Community remote.</small>
-            </div>
-
-            <div className="context-card">
-              <span className="context-label">Gateway</span>
-              <strong>{import.meta.env.VITE_GATEWAY_URL || 'http://localhost:4000/graphql'}</strong>
-              <small>{loading ? 'Checking session...' : 'Connected through shell Apollo client'}</small>
-            </div>
-          </section>
-        ) : null}
-
         <section className="remote-panel">
           <Suspense fallback={<RemoteFallback />}>
-            {displayView === 'home' ? (
-              <ShellHome currentUser={currentUser} selectedIssueId={selectedIssueId} />
-            ) : null}
-
             {displayView === 'auth' ? <AuthRemote /> : null}
 
-            {displayView === 'issue' && currentUser ? <IssueRemote /> : null}
+            {displayView === 'issue' && isAuthenticated ? <IssueRemote /> : null}
 
-            {displayView === 'community' && currentUser ? (
+            {displayView === 'community' && isAuthenticated ? (
               <CommunityRemote issueId={selectedIssueId || undefined} currentUser={currentUser} />
             ) : null}
 
-            {displayView === 'analytics' && currentUser ? <AnalyticsRemote /> : null}
+            {displayView === 'analytics' &&
+            isAuthenticated &&
+            isViewAllowedForRole('analytics', userRole) ? (
+              <AnalyticsRemote view="analytics" />
+            ) : null}
+
+            {displayView === 'ai' &&
+            isAuthenticated &&
+            isViewAllowedForRole('ai', userRole) ? (
+              <AnalyticsRemote view="ai" />
+            ) : null}
           </Suspense>
         </section>
       </main>
+
+      {showHelperBot ? <CivicHelperBot /> : null}
     </div>
   )
 }
@@ -250,46 +265,6 @@ function NavButton({ label, hash, active, disabled = false }) {
     >
       {label}
     </button>
-  )
-}
-
-function ShellHome({ currentUser, selectedIssueId }) {
-  return (
-    <div className="home-grid">
-      <div className="home-card">
-        <span className="card-eyebrow">Architecture</span>
-        <h2>Shell + 4 Remotes</h2>
-        <p>
-          This shell orchestrates Auth, Issue, Community, and Analytics/Admin micro frontends
-          through Vite Module Federation.
-        </p>
-      </div>
-
-      <div className="home-card">
-        <span className="card-eyebrow">Authentication</span>
-        <h2>{currentUser ? 'Authenticated' : 'Not signed in'}</h2>
-        <p>
-          {currentUser
-            ? `Signed in as ${currentUser.fullName} (${formatRole(currentUser.role)}).`
-            : 'Use the Auth module to sign in and unlock all protected views.'}
-        </p>
-      </div>
-
-      <div className="home-card">
-        <span className="card-eyebrow">Community context</span>
-        <h2>{selectedIssueId || 'No issue selected'}</h2>
-        <p>
-          The Community remote can accept an issue ID from the shell so it opens directly on that
-          issue.
-        </p>
-      </div>
-
-      <div className="home-card">
-        <span className="card-eyebrow">Demo order</span>
-        <h2>Recommended flow</h2>
-        <p>Auth → Issue Reporting → Community Engagement → Analytics/Admin</p>
-      </div>
-    </div>
   )
 }
 

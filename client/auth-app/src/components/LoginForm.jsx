@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import PasswordField from './PasswordField'
 
 const initialState = {
   usernameOrEmail: '',
@@ -53,17 +54,12 @@ export default function LoginForm() {
         />
       </label>
 
-      <label>
-        Password
-        <input
-          name="password"
-          type="password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-          autoComplete="current-password"
-        />
-      </label>
+      <PasswordField
+        name="password"
+        value={formData.password}
+        onChange={handleChange}
+        autoComplete="current-password"
+      />
 
       {errorMessage ? <div className="message error">{errorMessage}</div> : null}
 
