@@ -45,6 +45,7 @@ const server = new ApolloServer({
   introspection: true,
 });
 
+// Extract user info from JWT token
 const getUserFromRequest = (req) => {
   try {
     const token =

@@ -47,6 +47,7 @@ const requireAuth = (user) => {
   }
 };
 
+// Only allow staff or advocate users to perform certain actions
 const requireStaffOrAdvocate = (user) => {
   requireAuth(user);
 
@@ -69,6 +70,7 @@ const createNotification = async ({ userId, issueId, message, type }) => {
 
 const resolvers = {
   Query: {
+    // Get issues reported by the authenticated user with userId from JWT token
     myIssues: async (_, __, { user }) => {
       requireAuth(user);
 
@@ -83,6 +85,7 @@ const resolvers = {
       return issues.map(formatIssue);
     },
 
+    // Get issue by ID with access control based on user role and ownership
     issueById: async (_, { id }, { user }) => {
       requireAuth(user);
 
@@ -101,6 +104,7 @@ const resolvers = {
       return formatIssue(issue);
     },
 
+    // Get urgent issues for staff and advocate users
     urgentIssues: async (_, __, { user }) => {
       requireStaffOrAdvocate(user);
 
@@ -117,6 +121,7 @@ const resolvers = {
   },
 
   Mutation: {
+    // Report a new issue with the user's information from JWT token and create a notification for the reporter
     reportIssue: async (_, { input }, { user }) => {
       try {
         requireAuth(user);
@@ -165,6 +170,7 @@ const resolvers = {
       }
     },
 
+    // Update issue status with access control and create a notification for the reporter about the status change
     updateIssueStatus: async (_, { issueId, status, internalNotes }, { user }) => {
       try {
         requireStaffOrAdvocate(user);
@@ -208,6 +214,7 @@ const resolvers = {
       }
     },
 
+    // Assign issue to other user with access control and create a notification for the reporter
     assignIssue: async (_, { issueId, assignedTo, assignedToUsername }, { user }) => {
       try {
         requireStaffOrAdvocate(user);
@@ -250,6 +257,7 @@ const resolvers = {
       }
     },
 
+    // Mark issue as urgent and create notification for the reporter
     markUrgent: async (_, { issueId, urgentAlert }, { user }) => {
       try {
         requireStaffOrAdvocate(user);
@@ -293,6 +301,7 @@ const resolvers = {
       }
     },
 
+    // Mark notification as read  and ensure users can only modify their own notifications
     markNotificationAsRead: async (_, { notificationId }, { user }) => {
       try {
         requireAuth(user);

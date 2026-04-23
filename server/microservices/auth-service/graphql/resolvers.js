@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
 import { config } from '../config/config.js'
 
+// Constants for cookie management WITH THE MAX_AGE SET TO 24 HOURS
 const COOKIE_NAME = 'token'
 const COOKIE_MAX_AGE = 24 * 60 * 60 * 1000
 
@@ -12,6 +13,7 @@ const getCookieOptions = () => ({
   maxAge: COOKIE_MAX_AGE,
 })
 
+// Create JWT token with user info and 24-hour expiration
 const createToken = (user) => {
   return jwt.sign(
     {
@@ -25,6 +27,7 @@ const createToken = (user) => {
   )
 }
 
+// Format user object for API response
 const formatUser = (user) => ({
   id: user._id.toString(),
   fullName: user.fullName,
@@ -39,6 +42,7 @@ const normalizeRoleForPublicRegistration = () => 'resident'
 
 const resolvers = {
   Query: {
+    // Get current user based on JWT token in the request cookies
     currentUser: async (_, __, context) => {
       try {
         if (!context.user?.userId) {
@@ -59,6 +63,7 @@ const resolvers = {
   },
 
   Mutation: {
+    // Register a new user with full name, unique username,unique email, and password
     register: async (_, { fullName, username, email, password }) => {
       try {
         const normalizedEmail = email.trim().toLowerCase()
@@ -114,6 +119,7 @@ const resolvers = {
       }
     },
 
+    // Login user with username or email and password, return JWT token in HTTP-only cookie
     login: async (_, { usernameOrEmail, password }, { res }) => {
       try {
         const rawValue = usernameOrEmail.trim()
@@ -164,6 +170,7 @@ const resolvers = {
       }
     },
 
+    // Logout user by clearing the JWT token cookie
     logout: async (_, __, { res }) => {
       try {
         res.clearCookie(COOKIE_NAME, {
