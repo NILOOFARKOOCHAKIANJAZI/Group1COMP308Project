@@ -13,3 +13,13 @@ export const CURRENT_USER_QUERY = gql`
     }
   }
 `
+
+export const CHATBOT_QUERY = gql`
+  query Chatbot($question: [MessageInput!]!) {
+    chatbotQuery(question: $question) {
+      text
+      success
+      message
+    }
+  }
+`

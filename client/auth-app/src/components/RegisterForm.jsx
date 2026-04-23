@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import PasswordField from './PasswordField'
 
 const initialState = {
   fullName: '',
@@ -79,17 +80,13 @@ export default function RegisterForm() {
         />
       </label>
 
-      <label>
-        Password
-        <input
-          name="password"
-          type="password"
-          minLength="6"
-          value={formData.password}
-          onChange={handleChange}
-          required
-        />
-      </label>
+      <PasswordField
+        name="password"
+        value={formData.password}
+        onChange={handleChange}
+        minLength={6}
+        autoComplete="new-password"
+      />
 
       <div className="message info compact">
         New accounts are created as <strong>Resident</strong> accounts.

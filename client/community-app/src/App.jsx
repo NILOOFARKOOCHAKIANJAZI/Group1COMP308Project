@@ -6,7 +6,9 @@ import './index.css'
 export default function App({ issueId, currentUser }) {
   return (
     <ApolloProvider client={client}>
-      <CommunityApp issueId={issueId} currentUser={currentUser} />
+      <div className="community-shell">
+        <CommunityApp issueId={issueId} currentUser={currentUser} />
+      </div>
     </ApolloProvider>
   )
 }

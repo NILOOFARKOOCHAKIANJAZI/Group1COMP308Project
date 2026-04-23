@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
+import { Map, Marker } from "@vis.gl/react-google-maps";
 import "./map.css";
 
-export default function MapPickerModal({ onClose, onSelect }) {
-  const [position, setPosition] = useState(null);
+const TORONTO_CENTER = { lat: 43.6532, lng: -79.3832 };
+
+export default function MapPickerModal({ onClose, onSelect, initialCenter }) {
+  const [position, setPosition] = useState(initialCenter || null);
 
   const handleClick = (e) => {
     const lat = e.detail.latLng.lat;
@@ -39,22 +41,22 @@ export default function MapPickerModal({ onClose, onSelect }) {
     onClose();
   };
 
+  const center = position || initialCenter || TORONTO_CENTER;
+
   return (
     <div className="modal-overlay">
       <div className="modal-card">
         <h3>Select Location</h3>
 
-        <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-          <Map
-            style={{ width: "100%", height: "400px" }}
-            defaultCenter={{ lat: 43.6532, lng: -79.3832 }}
-            defaultZoom={12}
-            gestureHandling="greedy"
-            onClick={handleClick}
-          >
-            {position && <Marker position={position} />}
-          </Map>
-        </APIProvider>
+        <Map
+          style={{ width: "100%", height: "400px" }}
+          defaultCenter={center}
+          defaultZoom={initialCenter ? 16 : 12}
+          gestureHandling="greedy"
+          onClick={handleClick}
+        >
+          {position && <Marker position={position} />}
+        </Map>
 
         <div className="modal-actions">
           <button className="secondary-btn" onClick={onClose}>
