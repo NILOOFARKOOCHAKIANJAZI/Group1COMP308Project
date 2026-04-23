@@ -15,6 +15,7 @@ const QUICK_REPLIES = [
 
 const AVATAR_SRC = '/earth-chan.png'
 
+//the ai chat box at the bottom right of the screen that can answer simple questions about community issues.
 export default function CivicHelperBot() {
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -27,6 +28,7 @@ export default function CivicHelperBot() {
     fetchPolicy: 'no-cache',
   })
 
+  // Scroll to the bottom of the messages container whenever messages change
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight

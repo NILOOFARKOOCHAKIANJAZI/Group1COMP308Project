@@ -7,6 +7,8 @@ import { getInitials, roleClass, formatRelativeOrDate, isPrivileged } from '../u
 const MIN_COMMENT_LENGTH = 2
 const MAX_COMMENT_LENGTH = 1000
 
+
+//  displays a list of comments for a given issue and allows authenticated users to add new comments or delete their own comments. 
 export default function CommentsPanel({ issueId, currentUser }) {
   const [draft, setDraft] = useState('')
   const [submissionError, setSubmissionError] = useState('')

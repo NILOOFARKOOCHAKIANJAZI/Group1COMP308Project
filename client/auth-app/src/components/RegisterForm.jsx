@@ -8,7 +8,7 @@ const initialState = {
   email: '',
   password: '',
 }
-
+// The RegisterForm component provides a registration form for new users to create an account.
 export default function RegisterForm() {
   const { register, busy, clearMessage } = useAuth()
   const [formData, setFormData] = useState(initialState)

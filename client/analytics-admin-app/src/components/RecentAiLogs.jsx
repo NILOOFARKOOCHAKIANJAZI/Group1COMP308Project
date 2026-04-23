@@ -18,6 +18,7 @@ function formatDate(value) {
   }
 }
 
+// The RecentAiLogs component fetches and displays a list of recent AI insight logs
 export default function RecentAiLogs() {
   const { data, loading, error } = useQuery(RECENT_AI_INSIGHT_LOGS_QUERY, {
     variables: { limit: 8 },

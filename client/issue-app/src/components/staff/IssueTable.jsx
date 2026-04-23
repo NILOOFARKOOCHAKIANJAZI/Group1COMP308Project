@@ -6,6 +6,7 @@ import {
   priorityToneClass,
 } from '../../utils/issueEnums'
 
+// displays a table of issues for staff members, showing key details and allowing them to click into an issue for more information and controls.
 export default function IssueTable({ issues }) {
   const navigate = useNavigate()
 

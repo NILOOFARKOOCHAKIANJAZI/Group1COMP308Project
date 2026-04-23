@@ -43,7 +43,7 @@ function GeminiSpark() {
     </svg>
   )
 }
-
+// A simple animated indicator to show when the assistant is generating a response.
 function TypingDots() {
   return (
     <span className="aa-ai-typing" aria-label="Assistant is typing">
@@ -54,6 +54,7 @@ function TypingDots() {
   )
 }
 
+// The AiChatBox component provides an interface for users to interact with an AI assistant, allowing them to ask questions and receive responses about community issues. It manages the chat state, handles user input, and displays messages in a conversational format.
 export default function AiChatBox({ currentUser }) {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([])

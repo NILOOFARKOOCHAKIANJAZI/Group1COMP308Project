@@ -1,5 +1,6 @@
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, CATEGORY_OPTIONS, formatLabel } from '../../utils/issueEnums'
 
+// for staff members to filter the list of issues based on search text, status, priority, and category.
 export default function FilterBar({
   search,
   onSearchChange,

@@ -9,6 +9,8 @@ import {
 import { ISSUE_BY_ID } from '../../graphql/queries/issueQueries'
 import { ALL_ISSUES, URGENT_ISSUES } from '../../graphql/queries/staffQueries'
 
+
+// provides staff members with controls to update the status and internal notes of an issue, assign the issue to themselves, and  the urgent flag.
 export default function StaffControlsPanel({ issue, currentUser }) {
   const [status, setStatus] = useState(issue.status)
   const [internalNotes, setInternalNotes] = useState(issue.internalNotes || '')

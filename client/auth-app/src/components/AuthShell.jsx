@@ -4,6 +4,7 @@ import RegisterForm from './RegisterForm'
 import EarthChanScene from './EarthChanScene'
 import { useAuth } from '../context/AuthContext'
 
+// The AuthShell component provides the main layout and functionality for the authentication page
 export default function AuthShell() {
   const [activeTab, setActiveTab] = useState('login')
   const { loading, authMessage, authError } = useAuth()
@@ -13,6 +14,7 @@ export default function AuthShell() {
     const video = videoRef.current
     if (!video) return undefined
 
+    // Attempt to play the video, and log any errors that occur (e.g. due to autoplay restrictions)
     const tryPlay = () => {
       const promise = video.play()
       if (promise && typeof promise.catch === 'function') {

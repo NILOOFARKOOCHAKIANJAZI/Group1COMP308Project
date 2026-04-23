@@ -52,6 +52,7 @@ function AiAssistantView({ currentUser }) {
 }
 
 function AnalyticsAdminShell({ view }) {
+  //Get the current authenticated user and check if they have the required role to access the analytics admin features. Show appropriate loading, error, and access denied states based on the query result and user role.
   const { data, loading, error } = useQuery(CURRENT_USER_QUERY, {
     fetchPolicy: 'network-only',
     errorPolicy: 'all',
@@ -78,6 +79,7 @@ function AnalyticsAdminShell({ view }) {
     )
   }
 
+  // If there is no authenticated user, show an access denied message prompting
   if (!currentUser) {
     return (
       <div className="aa-shell">
@@ -89,6 +91,7 @@ function AnalyticsAdminShell({ view }) {
     )
   }
 
+  // if not a privileged user, show an access denied message with the current user's role and the intended audience for the analytics admin features
   if (!isPrivileged) {
     return (
       <div className="aa-shell">
@@ -111,6 +114,8 @@ function AnalyticsAdminShell({ view }) {
   )
 }
 
+// The main App component wraps the AnalyticsAdminShell with the ApolloProvider to provide GraphQL data access throughout the component tree. 
+// It also accepts a 'view' prop to determine whether to show the analytics dashboard or the AI assistant interface, defaulting to 'analytics'.
 export default function App({ view = 'analytics' }) {
   return (
     <ApolloProvider client={client}>

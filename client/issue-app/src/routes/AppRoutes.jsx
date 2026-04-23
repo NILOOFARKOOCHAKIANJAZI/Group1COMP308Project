@@ -68,6 +68,7 @@ function StaffTopBar({ currentUser, links, unreadCount }) {
   )
 }
 
+// The AppRoutes component defines the main routes for the IssueApp micro frontend, rendering different pages based on the user's role and authentication status. It also fetches the current user and their notifications to display in the top bar.
 export default function AppRoutes() {
   const { data: userData, loading: userLoading } = useQuery(CURRENT_USER_QUERY, {
     fetchPolicy: 'cache-and-network',

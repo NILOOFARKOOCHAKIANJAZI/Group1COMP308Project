@@ -20,6 +20,7 @@ function formatRole(role) {
   return roleMap[role] || role
 }
 
+// The UserPanel component displays information about the currently authenticated user
 export default function UserPanel() {
   const { user, logout, busy } = useAuth()
 
