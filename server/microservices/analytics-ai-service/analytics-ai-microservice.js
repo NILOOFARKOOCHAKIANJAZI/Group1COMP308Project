@@ -22,6 +22,7 @@ const app = express();
 
 connectDB();
 
+// CORS configuration to allow requests from the client application
 app.use(
   cors({
     origin: config.clientOrigins,
@@ -39,11 +40,13 @@ const schema = buildSubgraphSchema([
   },
 ]);
 
+// Create Apollo Server instance
 const server = new ApolloServer({
   schema,
   introspection: true,
 });
 
+// Helper function to extract user info from JWT token in the request
 const getUserFromRequest = (req) => {
   try {
     const token =
@@ -70,6 +73,7 @@ const getUserFromRequest = (req) => {
   }
 };
 
+// Start the server
 const startServer = async () => {
   try {
     await server.start();

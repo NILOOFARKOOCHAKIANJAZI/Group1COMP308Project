@@ -11,6 +11,7 @@ const requireAuth = (user) => {
   }
 };
 
+// Only allow users with privileged roles (staff or advocate) to access certain actions
 const requirePrivilegedRole = (user) => {
   requireAuth(user);
 
@@ -69,6 +70,7 @@ const resolvers = {
       return reactions.map(formatReaction);
     },
 
+    // Only privileged users can see volunteer interests for an issue by issue ID
     volunteerInterestsByIssue: async (_, { issueId }, { user }) => {
       requirePrivilegedRole(user);
 
@@ -76,6 +78,7 @@ const resolvers = {
       return volunteerInterests.map(formatVolunteerInterest);
     },
 
+    // Authenticated users can see their own volunteer interests across all issues
     myVolunteerInterests: async (_, __, { user }) => {
       requireAuth(user);
 
@@ -86,6 +89,7 @@ const resolvers = {
       return volunteerInterests.map(formatVolunteerInterest);
     },
 
+    // Get a summary of community engagement for an issue, including total comments, upvotes, and volunteers
     communitySummary: async (_, { issueId }) => {
       const [totalComments, totalUpvotes, totalVolunteers] = await Promise.all([
         Comment.countDocuments({ issueId }),
@@ -254,6 +258,7 @@ const resolvers = {
       }
     },
 
+    // Authenticated users can express volunteer interest in an issue
     expressVolunteerInterest: async (_, { input }, { user }) => {
       try {
         requireAuth(user);
@@ -299,6 +304,7 @@ const resolvers = {
       }
     },
 
+    // Only privileged users can update the status of volunteer interests
     updateVolunteerInterestStatus: async (_, { volunteerInterestId, status }, { user }) => {
       try {
         requirePrivilegedRole(user);

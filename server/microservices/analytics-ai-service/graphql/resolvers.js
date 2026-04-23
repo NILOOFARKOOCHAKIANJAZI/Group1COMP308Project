@@ -48,6 +48,7 @@ let CommentModel = null;
 let IssueReactionModel = null;
 let VolunteerInterestModel = null;
 
+//Manage database connections and models for issues
 const getIssueConnection = async () => {
   if (issueConnection) {
     return issueConnection;
@@ -84,6 +85,7 @@ const getIssueConnection = async () => {
   return issueConnection;
 };
 
+//Manage database connections and models for community data
 const getCommunityConnection = async () => {
   if (communityConnection) {
     return communityConnection;
@@ -170,6 +172,7 @@ const extractJsonObject = (text) => {
   }
 };
 
+// Fallback classification logic based on keyword matching for common issues
 const fallbackClassification = (title, description) => {
   const combined = `${title} ${description}`.toLowerCase();
 
@@ -243,6 +246,7 @@ const logInsight = async ({
   return log;
 };
 
+// Generate text using Gemini with error handling and fallback
 const generateTextWithGemini = async (prompt, fallbackText) => {
   const client = getGeminiClient();
 
@@ -256,6 +260,7 @@ const generateTextWithGemini = async (prompt, fallbackText) => {
       contents: prompt,
     });
 
+    //preventing errors if response.text is not a string or is missing
     const text = typeof response?.text === 'string' ? response.text.trim() : '';
 
     return text || fallbackText;
@@ -282,6 +287,7 @@ const getCommunityDocuments = async () => {
   return { comments, reactions, volunteerInterests };
 };
 
+// Build a text dataset for the issue trend analysis prompt
 const buildIssueDatasetText = (issues, comments, reactions, volunteerInterests) => {
   return issues
     .slice(0, 50)
@@ -345,7 +351,7 @@ const extractKeyword = (query) => {
   return cleaned || raw;
 };
 
-// Define Tools
+// Define Tools for the AI agent to interact with the issue data and generate insights
 const issueSearchTool = new DynamicTool({
   name: 'search_community_issues',
   description:
@@ -390,6 +396,7 @@ const issueSearchTool = new DynamicTool({
   },
 });
 
+// Tool to find open issues that currently have no volunteers
 const findVolunteerNeedIssueTool = new DynamicTool({
   name: 'find_issues_without_volunteers',
   description:
@@ -437,6 +444,7 @@ const findVolunteerNeedIssueTool = new DynamicTool({
   },
 });
 
+// Additional tools for issue counts
 const totalIssueCountTool = new DynamicTool({
   name: 'get_total_issue_count',
   description: 'Returns the total number of issues in the system.',
@@ -448,6 +456,7 @@ const totalIssueCountTool = new DynamicTool({
   },
 });
 
+// Additional tools for issue  thats are open
 const openIssueCountTool = new DynamicTool({
   name: 'get_open_issue_count',
   description: 'Returns the total number of open issues in the system.',
@@ -464,6 +473,7 @@ const openIssueCountTool = new DynamicTool({
   },
 });
 
+// Additional tool for issue counts that are resolved
 const resolvedIssueCountTool = new DynamicTool({
   name: 'get_resolved_issue_count',
   description: 'Returns the total number of resolved issues in the system.',
@@ -475,6 +485,7 @@ const resolvedIssueCountTool = new DynamicTool({
   },
 });
 
+// Tool to get a summary of urgent issues
 const urgentIssueSummaryTool = new DynamicTool({
   name: 'get_urgent_issue_summary',
   description:
@@ -496,6 +507,7 @@ const urgentIssueSummaryTool = new DynamicTool({
   },
 });
 
+// Tool to get issue counts by category
 const issuesByCategoryTool = new DynamicTool({
   name: 'get_issues_by_category',
   description:
@@ -525,6 +537,7 @@ const issuesByCategoryTool = new DynamicTool({
   },
 });
 
+// Tool to get issue by neighborhood
 const issuesByNeighborhoodTool = new DynamicTool({
   name: 'get_issues_by_neighborhood',
   description:
@@ -554,6 +567,7 @@ const issuesByNeighborhoodTool = new DynamicTool({
   },
 });
 
+// Tool to get a dashboard summary of key metrics
 const dashboardSummaryTool = new DynamicTool({
   name: 'get_dashboard_summary',
   description:
@@ -597,6 +611,7 @@ const model = new ChatGoogleGenerativeAI({
   apiKey: config.geminiApiKey,
 });
 
+// Combine all tools into a ToolNode for the agent to use
 const tools = [
   issueSearchTool,
   findVolunteerNeedIssueTool,
@@ -637,6 +652,7 @@ const workflow = new StateGraph({
   .addConditionalEdges('agent', shouldContinue)
   .addEdge('tools', 'agent');
 
+// Compile the agent application with a recursion limit to prevent infinite loops
 const agentApp = workflow.compile({
   recursionLimit: 5,
 });
@@ -649,6 +665,7 @@ const resolvers = {
   },
 
   Query: {
+    // Dashboard stats for admin dashboard
     dashboardStats: async (_, __, { user }) => {
       requirePrivilegedRole(user);
 
@@ -685,6 +702,7 @@ const resolvers = {
       };
     },
 
+    // Search issues By Category
     issuesByCategory: async (_, __, { user }) => {
       requirePrivilegedRole(user);
 
@@ -732,6 +750,7 @@ const resolvers = {
       }));
     },
 
+    // Retrieve recent AI insight logs 
     recentAiInsightLogs: async (_, { limit = 10 }, { user }) => {
       requirePrivilegedRole(user);
 
@@ -742,6 +761,7 @@ const resolvers = {
       return logs.map(formatAIInsightLog);
     },
 
+    // Using AI with a natural language query for classifying an issue
     classifyIssue: async (_, { title, description }, { user }) => {
       try {
         requireAuth(user);
@@ -806,6 +826,7 @@ Issue description: ${description}
       }
     },
 
+    // Using AI to generate a concise summary of an issue with community context
     summarizeIssue: async (_, { issueId = '', title, description, comments = [] }, { user }) => {
       try {
         requireAuth(user);
@@ -860,6 +881,7 @@ ${commentsText}
       }
     },
 
+    // Using AI to generate insights on trends across the issue dataset for municipal management
     trendInsights: async (_, __, { user }) => {
       try {
         requirePrivilegedRole(user);
@@ -922,6 +944,7 @@ ${datasetText || 'No issue data available.'}
       }
     },
 
+    // Using AI as a chatbot to answer natural language questions with defined tools
     chatbotQuery: async (_, { question }, { user }) => {
       try {
         requireAuth(user);
