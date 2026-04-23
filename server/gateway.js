@@ -16,6 +16,7 @@ const app = express();
 
 const gatewayPort = process.env.GATEWAY_PORT || 4000;
 
+// allow multiple origins from environment variable, separated by commas
 const clientOrigins = (
   process.env.CLIENT_ORIGINS ||
   'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:4000,https://studio.apollographql.com'
@@ -42,6 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Custom data source to forward cookies from the client to subgraph services
 class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   willSendRequest({ request, context }) {
     if (context.cookie) {
@@ -64,6 +66,7 @@ class AuthenticatedDataSource extends RemoteGraphQLDataSource {
   }
 }
 
+// Configure Apollo Gateway with subgraph services and custom data source
 const gateway = new ApolloGateway({
   supergraphSdl: new IntrospectAndCompose({
     subgraphs: [

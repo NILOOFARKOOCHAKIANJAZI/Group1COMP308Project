@@ -13,7 +13,7 @@ const getCookieOptions = () => ({
   maxAge: COOKIE_MAX_AGE,
 })
 
-// Create JWT token with user info
+// Create JWT token with user info and 24-hour expiration
 const createToken = (user) => {
   return jwt.sign(
     {

@@ -121,7 +121,7 @@ const resolvers = {
   },
 
   Mutation: {
-    // Report a new issue with the user's information from JWT token
+    // Report a new issue with the user's information from JWT token and create a notification for the reporter
     reportIssue: async (_, { input }, { user }) => {
       try {
         requireAuth(user);
@@ -170,7 +170,7 @@ const resolvers = {
       }
     },
 
-    // Update issue status with access control
+    // Update issue status with access control and create a notification for the reporter about the status change
     updateIssueStatus: async (_, { issueId, status, internalNotes }, { user }) => {
       try {
         requireStaffOrAdvocate(user);
@@ -214,7 +214,7 @@ const resolvers = {
       }
     },
 
-    // Assign issue to other user with access control
+    // Assign issue to other user with access control and create a notification for the reporter
     assignIssue: async (_, { issueId, assignedTo, assignedToUsername }, { user }) => {
       try {
         requireStaffOrAdvocate(user);

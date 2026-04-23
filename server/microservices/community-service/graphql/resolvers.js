@@ -137,6 +137,7 @@ const resolvers = {
       }
     },
 
+    // Only allow comment deletion by the comment author or privileged users
     deleteComment: async (_, { commentId }, { user }) => {
       try {
         requireAuth(user);
@@ -179,6 +180,7 @@ const resolvers = {
       }
     },
 
+    // Authenticated users can upvote an issue, but only once per issue
     addUpvote: async (_, { issueId }, { user }) => {
       try {
         requireAuth(user);
@@ -222,6 +224,7 @@ const resolvers = {
       }
     },
 
+    // users can remove their upvote from an issue
     removeUpvote: async (_, { issueId }, { user }) => {
       try {
         requireAuth(user);

@@ -85,7 +85,7 @@ const getIssueConnection = async () => {
   return issueConnection;
 };
 
-//Manage database connections and models for community data
+//Manage database connections and models for community data, including comments, issue reactions, and volunteer interests
 const getCommunityConnection = async () => {
   if (communityConnection) {
     return communityConnection;
@@ -145,6 +145,7 @@ const ensureAnalyticsSources = async () => {
   await Promise.all([getIssueConnection(), getCommunityConnection()]);
 };
 
+// Get a configured Gemini client or return null if API key is missing
 const getGeminiClient = () => {
   if (!config.geminiApiKey) {
     return null;
@@ -223,6 +224,7 @@ const fallbackClassification = (title, description) => {
   };
 };
 
+// Function to log AI insights to the database for auditing and analysis
 const logInsight = async ({
   insightType,
   relatedIssueId = '',
@@ -351,7 +353,7 @@ const extractKeyword = (query) => {
   return cleaned || raw;
 };
 
-// Define Tools for the AI agent to interact with the issue data and generate insights
+// Define Tools for the AI agent to interact with the issue data by searching, filtering, and summarizing issues based on natural language queries and criteria
 const issueSearchTool = new DynamicTool({
   name: 'search_community_issues',
   description:
@@ -396,7 +398,7 @@ const issueSearchTool = new DynamicTool({
   },
 });
 
-// Tool to find open issues that currently have no volunteers
+// Tool to find open issues that currently have no volunteers with search query across title, description, category, AI category, and neighborhood to help identify issues that may need volunteer support but are being overlooked
 const findVolunteerNeedIssueTool = new DynamicTool({
   name: 'find_issues_without_volunteers',
   description:
@@ -456,7 +458,7 @@ const totalIssueCountTool = new DynamicTool({
   },
 });
 
-// Additional tools for issue  thats are open
+// Additional tools for issueS  thats are open
 const openIssueCountTool = new DynamicTool({
   name: 'get_open_issue_count',
   description: 'Returns the total number of open issues in the system.',
@@ -507,7 +509,7 @@ const urgentIssueSummaryTool = new DynamicTool({
   },
 });
 
-// Tool to get issue counts by category
+// Tool to get issue thats group by category
 const issuesByCategoryTool = new DynamicTool({
   name: 'get_issues_by_category',
   description:
@@ -537,7 +539,7 @@ const issuesByCategoryTool = new DynamicTool({
   },
 });
 
-// Tool to get issue by neighborhood
+// Tool to get issues grouped by neighborhood
 const issuesByNeighborhoodTool = new DynamicTool({
   name: 'get_issues_by_neighborhood',
   description:
@@ -567,7 +569,7 @@ const issuesByNeighborhoodTool = new DynamicTool({
   },
 });
 
-// Tool to get a dashboard summary of key metrics
+// Tool to get a dashboard summary of key metrics including total issues, open issues, resolved issues, urgent issues, comments, upvotes, and volunteer interests
 const dashboardSummaryTool = new DynamicTool({
   name: 'get_dashboard_summary',
   description:
