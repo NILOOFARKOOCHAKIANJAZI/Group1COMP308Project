@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+// The PasswordField component is a reusable input field for passwords that includes a toggle to show or hide the password text.
 export default function PasswordField({
   name,
   value,

@@ -4,6 +4,7 @@ import "./map.css";
 
 const TORONTO_CENTER = { lat: 43.6532, lng: -79.3832 };
 
+// Modal for picking a location on the map and reverse geocoding it to an address
 export default function MapPickerModal({ onClose, onSelect, initialCenter }) {
   const [position, setPosition] = useState(initialCenter || null);
 

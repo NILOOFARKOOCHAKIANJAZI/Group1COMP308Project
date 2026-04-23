@@ -12,6 +12,7 @@ function buildFilename() {
   return `photo-${stamp}.jpg`;
 }
 
+// Modal for capturing a photo using the device camera
 export default function CameraCaptureModal({ onClose, onCapture }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);

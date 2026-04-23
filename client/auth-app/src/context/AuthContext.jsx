@@ -15,6 +15,8 @@ function notifyShell(type) {
   )
 }
 
+// The AuthProvider component manages authentication state and actions, 
+// providing them to the rest of the app via React Context. 
 export function AuthProvider({ children }) {
   const client = useApolloClient()
   const [authMessage, setAuthMessage] = useState('')

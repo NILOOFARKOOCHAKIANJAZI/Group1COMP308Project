@@ -9,6 +9,7 @@ import CommentsPanel from './CommentsPanel.jsx'
 import VolunteerInterestPanel from './VolunteerInterestPanel.jsx'
 import IssueBrowseGrid from './IssueBrowseGrid.jsx'
 
+// The CommunityApp component is the main entry point for the community engagement features. It manages the state of the selected issue and fetches the current user if not provided as a prop.
 export default function CommunityApp({ issueId: issueIdProp, currentUser: currentUserProp }) {
   const [selectedIssueId, setSelectedIssueId] = useState(issueIdProp || null)
 
@@ -35,6 +36,7 @@ export default function CommunityApp({ issueId: issueIdProp, currentUser: curren
     )
   }
 
+  // If the user is not authenticated, show a message prompting them to sign in through the authentication app before engaging with community features.
   if (!currentUser) {
     return (
       <main className="shell">
@@ -51,6 +53,7 @@ export default function CommunityApp({ issueId: issueIdProp, currentUser: curren
     )
   }
 
+  // If no specific issue is selected, show the grid of community issues. 
   if (!selectedIssueId) {
     return (
       <>
@@ -94,6 +97,7 @@ export default function CommunityApp({ issueId: issueIdProp, currentUser: curren
   )
 }
 
+// The Navbar component displays the application title and the current user's name and role.
 function Navbar({ currentUser }) {
   return (
     <nav className="navbar" aria-label="Primary">

@@ -1,6 +1,7 @@
 import { useQuery } from '@apollo/client/react'
 import { COMMUNITY_SUMMARY_QUERY } from '../graphql/queries'
 
+// fetches and displays a summary of community activity (total comments, upvotes, volunteers) for a specific issue.
 export default function CommunitySummaryCard({ issueId }) {
   const { data, loading, error } = useQuery(COMMUNITY_SUMMARY_QUERY, {
     variables: { issueId },

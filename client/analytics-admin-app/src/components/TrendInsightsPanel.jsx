@@ -1,6 +1,8 @@
 import { useQuery } from '@apollo/client/react'
 import { TREND_INSIGHTS_QUERY } from '../graphql/queries'
 
+// The TrendInsightsPanel component fetches and displays AI-generated insights about trends in community issues, 
+// allowing administrators to quickly understand emerging patterns and areas of concern.
 export default function TrendInsightsPanel() {
   const { data, loading, error, refetch } = useQuery(TREND_INSIGHTS_QUERY, {
     fetchPolicy: 'network-only',
